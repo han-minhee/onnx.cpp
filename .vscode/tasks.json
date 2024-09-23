@@ -1,0 +1,55 @@
+
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Configure with CMake",
+            "type": "shell",
+            "command": "cmake",
+            "args": [
+                "-S", ".",        
+                "-B", "build",    
+                "-G", "Ninja",    
+                "-DCMAKE_BUILD_TYPE=Debug"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": ["$gcc"],
+            "detail": "Configure the project with CMake using Ninja"
+        },
+        {
+            "label": "Build with Ninja",
+            "type": "shell",
+            "command": "cmake",
+            "args": [
+                "--build", "build" 
+            ],
+            "dependsOn": "Configure with CMake",
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": ["$gcc"],
+            "detail": "Build the project with Ninja"
+        },
+        {
+            "label": "Run CTest",
+            "type": "shell",
+            "command": "ctest",
+            "args": [
+                "--output-on-failure",
+                "-C", "Debug",          
+                "--test-dir", "build"   
+            ],
+            "group": {
+                "kind": "test",
+                "isDefault": true
+            },
+            "dependsOn": "Build with Ninja",
+            "problemMatcher": ["$gcc"],
+            "detail": "Run the tests using CTest"
+        }
+    ]
+}

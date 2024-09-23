@@ -1,0 +1,29 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Run Tests with CTest",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "/usr/bin/ctest",
+            "args": [
+                "--output-on-failure",
+                "-C",
+                "Debug",
+                "--test-dir",
+                "build"
+            ],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "externalConsole": true,
+            "MIMode": "gdb",
+            "miDebuggerPath": "/usr/bin/gdb",
+            "preLaunchTask": "Build with Ninja",
+            "logging": {
+                "trace": true,
+                "traceResponse": true,
+                "engineLogging": true
+            }
+        }
+    ]
+}
