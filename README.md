@@ -34,7 +34,7 @@ ctest
 ```
 
 ## Issues
-- It's partiall intentional, but the performance is horrible.
+- It's partially intentional, but the performance is horrible.
 - Though operators inherit from the same class, their internal implementations are not coherent.
 - Just the basic features are enabled for operators, and it doesn't work for some data types or attributes.
 - And as usual, needs lots of refactoring.
