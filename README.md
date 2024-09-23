@@ -5,7 +5,7 @@
 
 There are some DNN implementations built with specific models in mind. While they can be highly optimized for a certain DNN model or hardware, they often lack scalability. General solutions like TensorRT, ONNX Runtime, or TVM generally work well, but as "complete" frameworks, they can be hard to understand or fine-grainly controlled. Projects like llama.cpp or ggml take a more direct approach, but each model needs individual implementation.
 
-This library aims to be simpler while still leveraging the ONNX format, without requiring model-specific implementations. **Currently, this library supports only operators for YOLO, but it's designed to be easily scalable by implementing the required operator classes.**
+This library aims to be simpler while still leveraging the ONNX format, without requiring model-specific implementations. **Currently, this library supports only the operators for YOLOv8, but it's designed to be easily scalable by implementing the required operator classes.**
 
 Minimal dependency was also a consideration. The library uses protobuf to read the ONNX file, but it is used only for parsing the ONNX file and not in other logic. Aside from that, there is no external library dependency other than the standard libraries.
 
