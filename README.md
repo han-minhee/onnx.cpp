@@ -33,6 +33,39 @@ cmake --build .
 ctest
 ```
 
+### Inclusion in Code
+```c++
+#include <unordered_map>
+#include <vector>
+
+// include the headers from the library
+#include "session/session.hpp"
+#include "tensor/tensor.hpp"
+
+int main()
+{
+    // initialize a session with an ONNX file path
+    Session session("./yolov.onnx");
+
+    // initialize a tensor
+    std::vector<size_t> dims = {1, 3, 640, 640};
+    Tensor input_tensor(TensorDataType::FLOAT32, dims);
+    float *data = new float[1 * 3 * 640 * 640];
+    for (size_t i = 0; i < 1 * 3 * 640 * 640; ++i)
+    {
+        data[i] = 1.0f;
+    }
+    input_tensor.setDataPointer(data, dims);
+
+    // the inputs should be given as an unordered_map with Tensors
+    std::unordered_map<std::string, Tensor> inputs;
+    inputs["images"] = input_tensor;
+
+    // 'run' method runs the inference and give back the results as an unordered_map with Tensors
+    std::unordered_map<std::string, Tensor> outputs = session.run(inputs);
+}
+```
+
 ## Issues
 - It's partially intentional, but the performance is horrible.
 - Though operators inherit from the same class, their internal implementations are not coherent.
