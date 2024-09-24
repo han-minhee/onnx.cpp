@@ -69,7 +69,7 @@ namespace TensorUtils
 
         // check if the data is no more different than the tolerance
         // tolerance is get by getting the largest of the absolute values
-        // and 1% of it.
+        // and 0.1% of it.
 
         switch (lhs.getDataType())
         {

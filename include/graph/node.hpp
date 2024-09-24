@@ -8,14 +8,6 @@
 #include <variant>
 #include "tensor/tensor.hpp"
 
-// namespace PrintUtil{
-//     // print the attributes
-//     template <typename T>
-//     void printAttribute(const std::string &key, const T &value)
-//     {
-//         std::cout << key << ": " << value << std::endl;
-//     }
-// }
 
 class Node
 {
