@@ -112,7 +112,7 @@ std::unordered_map<std::string, Tensor> Session::run(const std::unordered_map<st
     const auto &nodes = graph.getNodes();
     for (const auto &node : nodes)
     {
-        // std::cout << "Executing node: " << node.getName() << std::endl;
+
         executeNode(node);
     }
     std::unordered_map<std::string, Tensor> outputs;
@@ -135,15 +135,15 @@ void Session::prepareExecution(const std::unordered_map<std::string, Tensor> &in
 }
 void Session::executeNode(const Node &node)
 {
-    // std::cout << "Executing node: " << node.getName() << std::endl;
+
     std::unique_ptr<Operator> op = OperatorFactory::createOperator(node.getOpType());
     std::vector<Tensor> input_tensors;
     for (const auto &input_name : node.getInputs())
     {
-        // std::cout << "Getting input tensor: " << input_name << std::endl;
+
         if (input_name.empty())
         {
-            // std::cout << "Input tensor name is blank" << std::endl;
+
             input_tensors.push_back(Tensor());
             continue;
         }
@@ -153,45 +153,22 @@ void Session::executeNode(const Node &node)
         }
         input_tensors.push_back(tensorMap.at(input_name));
     }
-    // std::cout << "Found " << input_tensors.size() << " input tensors:" << std::endl;
-    // for (const auto &input_tensor : input_tensors)
-    // {
-    //     std::cout << input_tensor.toString() << std::endl;
-    // }
-    // std::cout << "Infering output shapes" << std::endl;
+
     std::vector<std::vector<size_t>> output_shapes = op->inferOutputShapes(input_tensors, node.getAttributes());
-    // std::cout << "Inferring output data type" << std::endl;
     std::vector<TensorDataType> output_data_types = op->inferOutputDataTypes(input_tensors, node.getAttributes());
-    // std::cout << "Inferred output shapes and data types" << std::endl;
-    // std::cout << "Output shapes: " << std::endl;
-    // for (const auto &shape : output_shapes)
-    // {
-    //     for (size_t dim : shape)
-    //     {
-    //         std::cout << dim << " ";
-    //     }
-    //     std::cout << std::endl;
-    // }
-    // std::cout << "Allocating output tensors" << std::endl;
     std::vector<Tensor *> output_tensors;
-    // std::cout << "Dtypes: " << std::endl;
-    for (TensorDataType dtype : output_data_types)
-    {
-        std::cout << TensorUtils::getDataTypeName(dtype) << std::endl;
-    }
-    // std::cout << "Output shapes: " << std::endl;
+
     for (size_t i = 0; i < node.getOutputs().size(); ++i)
     {
         const std::string &output_name = node.getOutputs()[i];
         const std::vector<size_t> &shape = output_shapes[i];
         TensorDataType dtype = output_data_types[i];
-        // std::cout << "Allocating output tensor: " << output_name << std::endl;
-        // std::cout << "For dtype: " << TensorUtils::getDataTypeName(dtype) << std::endl;
+
         Tensor &output_tensor = getOrAllocateIntermediateTensor(output_name, shape, dtype);
-        // std::cout << "Allocated output tensor: " << output_name << std::endl;
+
         output_tensors.push_back(&output_tensor);
     }
-    // std::cout << "Executing operator: " << node.getOpType() << std::endl;
+
     OperatorExecuteResult result = op->execute(input_tensors, output_tensors, node.getAttributes());
     if (result != OperatorExecuteResult::SUCCESS)
     {
@@ -201,27 +178,20 @@ void Session::executeNode(const Node &node)
     {
         const std::string &output_name = node.getOutputs()[i];
         tensorMap[output_name] = *output_tensors[i];
-        // std::cout << "Output tensor: " << output_name << std::endl;
-        // std::cout << output_tensors[i]->toString() << std::endl;
     }
-    // std::cout << "Stored output tensors in tensorMap" << std::endl;
 }
 Tensor &Session::getOrAllocateIntermediateTensor(const std::string &name, const std::vector<size_t> &dims, TensorDataType dtype)
 {
-    // std::cout << "Getting or allocating intermediate tensor: " << name << std::endl;
+
     if (intermediateTensorPool.find(name) != intermediateTensorPool.end())
     {
         return intermediateTensorPool[name];
     }
     else
     {
-        // std::cout << "Dims: " << std::endl;
-        // for (size_t dim : dims)
-        // {
-        //     std::cout << dim << " ";
-        // }
+
         intermediateTensorPool[name] = Tensor(dtype, dims);
-        // std::cout << "Intermediate tensor allocated" << std::endl;
+
         return intermediateTensorPool[name];
     }
 }
@@ -314,7 +284,8 @@ void Session::compareOutputToReference(const Node &node, const std::string &sani
         std::cout << "Output tensor " << TensorCompareResultToString(is_equal) << ":" << sanitized_output_name << std::endl;
         return;
     }
-    else{
+    else
+    {
         std::cerr << "Mismatch at Node: " << node.getName() << std::endl;
         std::cerr << "Output tensor " << TensorCompareResultToString(is_equal) << ":" << sanitized_output_name << std::endl;
         std::cerr << "Expected tensor: " << std::endl;
