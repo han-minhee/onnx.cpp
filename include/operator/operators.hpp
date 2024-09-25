@@ -11,13 +11,13 @@
   {                                                                                                                                                           \
   public:                                                                                                                                                     \
     BaseName##Operator() : Operator(OperatorType::BaseName) {}                                                                                                \
-    OperatorExecuteResult execute(const std::vector<Tensor> &inputs,                                                                                          \
+    static OperatorExecuteResult execute(const std::vector<Tensor> &inputs,                                                                                          \
                                   std::vector<Tensor *> &outputs,                                                                                             \
-                                  const std::unordered_map<std::string, Node::AttributeValue> &attributes, DeviceType deviceType = DeviceType::CPU) override; \
-    std::vector<std::vector<size_t>> inferOutputShapes(const std::vector<Tensor> &inputs,                                                                     \
-                                                       const std::unordered_map<std::string, Node::AttributeValue> &attributes) override;                     \
-    std::vector<TensorDataType> inferOutputDataTypes(const std::vector<Tensor> &inputs,                                                                       \
-                                                     const std::unordered_map<std::string, Node::AttributeValue> &attributes) override;                       \
+                                  const std::unordered_map<std::string, Node::AttributeValue> &attributes, DeviceType deviceType = DeviceType::CPU); \
+    static std::vector<std::vector<size_t>> inferOutputShapes(const std::vector<Tensor> &inputs,                                                                     \
+                                                       const std::unordered_map<std::string, Node::AttributeValue> &attributes);                     \
+    static std::vector<TensorDataType> inferOutputDataTypes(const std::vector<Tensor> &inputs,                                                                       \
+                                                     const std::unordered_map<std::string, Node::AttributeValue> &attributes);                       \
   };                                                                                                                                                          \
                                                                                                                                                               \
   namespace CPU_OP                                                                                                                                            \

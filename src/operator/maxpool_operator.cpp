@@ -188,78 +188,19 @@ OperatorExecuteResult executeMaxPool(const Tensor &X, Tensor *Y,
 
 OperatorExecuteResult MaxPoolOperator::execute(
     const std::vector<Tensor> &inputs, std::vector<Tensor *> &outputs,
-    const std::unordered_map<std::string, Node::AttributeValue> &attributes)
+    const std::unordered_map<std::string, Node::AttributeValue> &attributes, DeviceType deviceType)
 {
-    if (inputs.size() < 1 || outputs.empty() || outputs[0] == nullptr)
+    switch (deviceType)
     {
-        return OperatorExecuteResult::INPUT_TENSOR_ERROR;
-    }
+    case DeviceType::CPU:
+        return CPU_OP::MaxPoolOperatorImpl::execute(inputs, outputs, attributes);
 
-    const Tensor &X = inputs.at(0);
-    Tensor *Y = outputs[0];
+#ifdef USE_HIP
+    case DeviceType::HIP:
+        return HIP_OP::MaxPoolOperatorImpl::execute(inputs, outputs, attributes);
+#endif
 
-    const std::vector<size_t> &X_dims = X.getDims();
-    size_t N = X_dims[0];
-    size_t C = X_dims[1];
-    size_t spatial_rank = X_dims.size() - 2;
-
-    std::string auto_pad = "NOTSET";
-    int64_t ceil_mode = 0;
-    std::vector<int64_t> dilations;
-    std::vector<int64_t> kernel_shape;
-    std::vector<int64_t> pads;
-    int64_t storage_order = 0;
-    std::vector<int64_t> strides;
-
-    for (const auto &[key, value] : attributes)
-    {
-        if (key == "auto_pad")
-            auto_pad = std::get<std::string>(value);
-        else if (key == "ceil_mode")
-            ceil_mode = std::get<int64_t>(value);
-        else if (key == "dilations")
-            dilations = std::get<std::vector<int64_t>>(value);
-        else if (key == "kernel_shape")
-            kernel_shape = std::get<std::vector<int64_t>>(value);
-        else if (key == "pads")
-            pads = std::get<std::vector<int64_t>>(value);
-        else if (key == "storage_order")
-            storage_order = std::get<int64_t>(value);
-        else if (key == "strides")
-            strides = std::get<std::vector<int64_t>>(value);
-    }
-
-    // Add this block to ensure the vectors have correct sizes
-    kernel_shape.resize(spatial_rank, 1);
-    pads.resize(spatial_rank * 2, 0);
-    strides.resize(spatial_rank, 1);
-    dilations.resize(spatial_rank, 1);
-
-    std::vector<size_t> input_spatial_shape(X_dims.begin() + 2, X_dims.end());
-    std::vector<std::vector<size_t>> output_shape = inferOutputShapes(inputs, attributes);
-    if (output_shape.empty())
-    {
-        return OperatorExecuteResult::SHAPE_MISMATCH_ERROR;
-    }
-
-    std::vector<size_t> output_spatial_shape = output_shape[0];
-    output_spatial_shape.erase(output_spatial_shape.begin(), output_spatial_shape.begin() + 2);
-
-    switch (X.getDataType())
-    {
-    case TensorDataType::FLOAT32:
-        return executeMaxPool<float>(X, Y, kernel_shape, pads, strides, dilations, N, C, input_spatial_shape, output_spatial_shape, spatial_rank);
-    case TensorDataType::FLOAT64:
-        return executeMaxPool<double>(X, Y, kernel_shape, pads, strides, dilations, N, C, input_spatial_shape, output_spatial_shape, spatial_rank);
-    case TensorDataType::INT32:
-        return executeMaxPool<int32_t>(X, Y, kernel_shape, pads, strides, dilations, N, C, input_spatial_shape, output_spatial_shape, spatial_rank);
-    case TensorDataType::INT64:
-        return executeMaxPool<int64_t>(X, Y, kernel_shape, pads, strides, dilations, N, C, input_spatial_shape, output_spatial_shape, spatial_rank);
-    case TensorDataType::INT8:
-        return executeMaxPool<int8_t>(X, Y, kernel_shape, pads, strides, dilations, N, C, input_spatial_shape, output_spatial_shape, spatial_rank);
-    case TensorDataType::UINT8:
-        return executeMaxPool<uint8_t>(X, Y, kernel_shape, pads, strides, dilations, N, C, input_spatial_shape, output_spatial_shape, spatial_rank);
     default:
-        return OperatorExecuteResult::DATA_TYPE_ERROR;
+        return OperatorExecuteResult::DEVICE_UNSUPPORTED;
     }
 }

@@ -56,25 +56,26 @@ namespace OperatorUtils
 class Operator
 {
 public:
+    /// FIXME: type should also be static
     Operator(OperatorType type) : type(type) {}
 
     virtual ~Operator() = default;
 
-    virtual OperatorExecuteResult execute(const std::vector<Tensor> &inputs,
-                                          std::vector<Tensor *> &outputs,
-                                          const std::unordered_map<std::string, Node::AttributeValue> &attributes, DeviceType deviceType = DeviceType::CPU)
+    static OperatorExecuteResult execute(const std::vector<Tensor> &inputs,
+                                         std::vector<Tensor *> &outputs,
+                                         const std::unordered_map<std::string, Node::AttributeValue> &attributes, DeviceType deviceType = DeviceType::CPU)
     {
         return OperatorExecuteResult::UNSUPPORTED_OPERATION;
     }
 
-    virtual std::vector<std::vector<size_t>> inferOutputShapes(const std::vector<Tensor> &inputs,
-                                                               const std::unordered_map<std::string, Node::AttributeValue> &attributes)
+    static std::vector<std::vector<size_t>> inferOutputShapes(const std::vector<Tensor> &inputs,
+                                                              const std::unordered_map<std::string, Node::AttributeValue> &attributes)
     {
         return {{}};
     }
 
-    virtual std::vector<TensorDataType> inferOutputDataTypes(const std::vector<Tensor> &inputs,
-                                                             const std::unordered_map<std::string, Node::AttributeValue> &attributes)
+    static std::vector<TensorDataType> inferOutputDataTypes(const std::vector<Tensor> &inputs,
+                                                            const std::unordered_map<std::string, Node::AttributeValue> &attributes)
     {
         if (inputs.empty())
         {
@@ -83,7 +84,7 @@ public:
         return {inputs[0].getDataType()};
     }
 
-    OperatorType getType() const { return type; }
+    OperatorType getType() { return type; }
 
 private:
     OperatorType type;
