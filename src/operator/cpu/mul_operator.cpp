@@ -2,19 +2,19 @@
 #include "operator/operators.hpp"
 #include "operator/aux_operator/elementwise_operator.hpp"
 
-std::vector<std::vector<size_t>> SubOperator::inferOutputShapes(const std::vector<Tensor> &inputs,
+std::vector<std::vector<size_t>> MulOperator::inferOutputShapes(const std::vector<Tensor> &inputs,
                                                                 const std::unordered_map<std::string, Node::AttributeValue> &attributes)
 {
     return inferElementwiseOutputShapes(inputs);
 }
 
-std::vector<TensorDataType> SubOperator::inferOutputDataTypes(const std::vector<Tensor> &inputs,
+std::vector<TensorDataType> MulOperator::inferOutputDataTypes(const std::vector<Tensor> &inputs,
                                                               const std::unordered_map<std::string, Node::AttributeValue> &attributes)
 {
     return inferElementwiseOutputDataTypes(inputs);
 }
 
-OperatorExecuteResult SubOperator::execute(const std::vector<Tensor> &inputs, std::vector<Tensor *> &outputs,
+OperatorExecuteResult MulOperator::execute(const std::vector<Tensor> &inputs, std::vector<Tensor *> &outputs,
                                            const std::unordered_map<std::string, Node::AttributeValue> &attributes)
 {
     if (inputs.size() < 2)
@@ -66,22 +66,22 @@ OperatorExecuteResult SubOperator::execute(const std::vector<Tensor> &inputs, st
     {
     case TensorDataType::FLOAT32:
         return executeElementwiseOperation<float>(inputs, output, input_strides, output_strides, output_shape,
-                                                  std::minus<float>());
+                                                  std::multiplies<float>());
     case TensorDataType::FLOAT64:
         return executeElementwiseOperation<double>(inputs, output, input_strides, output_strides, output_shape,
-                                                   std::minus<double>());
+                                                   std::multiplies<double>());
     case TensorDataType::INT32:
         return executeElementwiseOperation<int32_t>(inputs, output, input_strides, output_strides, output_shape,
-                                                    std::minus<int32_t>());
+                                                    std::multiplies<int32_t>());
     case TensorDataType::INT64:
         return executeElementwiseOperation<int64_t>(inputs, output, input_strides, output_strides, output_shape,
-                                                    std::minus<int64_t>());
+                                                    std::multiplies<int64_t>());
     case TensorDataType::INT8:
         return executeElementwiseOperation<int8_t>(inputs, output, input_strides, output_strides, output_shape,
-                                                   std::minus<int8_t>());
+                                                   std::multiplies<int8_t>());
     case TensorDataType::UINT8:
         return executeElementwiseOperation<uint8_t>(inputs, output, input_strides, output_strides, output_shape,
-                                                    std::minus<uint8_t>());
+                                                    std::multiplies<uint8_t>());
     default:
         return OperatorExecuteResult::UNSUPPORTED_OPERATION;
     }

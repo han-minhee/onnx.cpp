@@ -6,12 +6,12 @@ Node::Node(const std::string &name, const std::string &op_type)
 
 void Node::addInput(const std::string &input_name)
 {
-    inputs.push_back(input_name);
+    inputNames.push_back(input_name);
 }
 
 void Node::addOutput(const std::string &output_name)
 {
-    outputs.push_back(output_name);
+    outputNames.push_back(output_name);
 }
 
 void Node::addAttribute(const std::string &key, const Node::AttributeValue &value)
@@ -44,14 +44,14 @@ const std::string &Node::getOpType() const
     return op_type;
 }
 
-const std::vector<std::string> &Node::getInputs() const
+const std::vector<std::string> &Node::getInputNames() const
 {
-    return inputs;
+    return inputNames;
 }
 
-const std::vector<std::string> &Node::getOutputs() const
+const std::vector<std::string> &Node::getOutputNames() const
 {
-    return outputs;
+    return outputNames;
 }
 
 const std::unordered_map<std::string, Node::AttributeValue> &Node::getAttributes() const
@@ -65,14 +65,14 @@ std::string Node::toString() const
     oss << "Node: " << name << ", OpType: " << op_type << "\n";
 
     oss << "  Inputs: ";
-    for (const auto &input : inputs)
+    for (const auto &input : inputNames)
     {
         oss << input << " ";
     }
     oss << "\n";
 
     oss << "  Outputs: ";
-    for (const auto &output : outputs)
+    for (const auto &output : outputNames)
     {
         oss << output << " ";
     }

@@ -22,16 +22,17 @@ std::vector<TensorDataType> ConstantOperator::inferOutputDataTypes(const std::ve
 }
 
 OperatorExecuteResult ConstantOperator::execute(const std::vector<Tensor> &inputs, std::vector<Tensor *> &outputs,
-                                                const std::unordered_map<std::string, Node::AttributeValue> &attributes)
+                                                const std::unordered_map<std::string, Node::AttributeValue> &attributes, DeviceType deviceType)
 {
-    if (attributes.count("value"))
+    switch (deviceType)
     {
-        outputs[0]->copy_tensor(std::get<Tensor>(attributes.at("value")));
-        return OperatorExecuteResult::SUCCESS;
-    }
-    /// FIXME: implement where the value is not given as a tensor (int, ints, float, floats, etc.)
-    else
-    {
-        return OperatorExecuteResult::ATTRIBUTE_ERROR;
+    case DeviceType::CPU:
+        return CPU_OP::ConstantOperatorImpl().execute(inputs, outputs, attributes);
+#ifdef USE_HIP
+    case DeviceType::HIP:
+        return HIP_OP::ConstantOperatorImpl().execute(inputs, outputs, attributes);
+#endif
+    default:
+        return OperatorExecuteResult::DEVICE_UNSUPPORTED;
     }
 }

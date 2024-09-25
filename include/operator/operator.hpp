@@ -8,6 +8,7 @@
 
 #include "tensor/tensor.hpp"
 #include "graph/node.hpp"
+#include "device/device.hpp"
 
 enum class OperatorType
 {
@@ -42,7 +43,8 @@ enum class OperatorExecuteResult
     SHAPE_MISMATCH_ERROR,
     UNSUPPORTED_OPERATION,
     MEMORY_ALLOCATION_ERROR,
-    UNKNOWN_ERROR
+    UNKNOWN_ERROR,
+    DEVICE_UNSUPPORTED
 };
 
 namespace OperatorUtils
@@ -60,7 +62,7 @@ public:
 
     virtual OperatorExecuteResult execute(const std::vector<Tensor> &inputs,
                                           std::vector<Tensor *> &outputs,
-                                          const std::unordered_map<std::string, Node::AttributeValue> &attributes)
+                                          const std::unordered_map<std::string, Node::AttributeValue> &attributes, DeviceType deviceType = DeviceType::CPU)
     {
         return OperatorExecuteResult::UNSUPPORTED_OPERATION;
     }
@@ -68,13 +70,12 @@ public:
     virtual std::vector<std::vector<size_t>> inferOutputShapes(const std::vector<Tensor> &inputs,
                                                                const std::unordered_map<std::string, Node::AttributeValue> &attributes)
     {
-        return {{1}};
+        return {{}};
     }
 
     virtual std::vector<TensorDataType> inferOutputDataTypes(const std::vector<Tensor> &inputs,
                                                              const std::unordered_map<std::string, Node::AttributeValue> &attributes)
     {
-        // Default implementation: return the data type of the first input tensor
         if (inputs.empty())
         {
             return {TensorDataType::UNDEFINED};
@@ -97,6 +98,7 @@ private:
     OperatorFactory() = default;
 };
 
+/// FIXME: These auxiliary functions should be moved to a different file
 std::vector<size_t> compute_broadcast_shape(const std::vector<std::vector<size_t>> &shapes);
 std::vector<size_t> compute_broadcast_strides(const std::vector<size_t> &input_shape, const std::vector<size_t> &output_shape);
 
