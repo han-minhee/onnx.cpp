@@ -6,46 +6,10 @@
 #include <unordered_map>
 #include <memory>
 
-#include "tensor/tensor.hpp"
 #include "graph/node.hpp"
+#include "tensor/tensor.hpp"
 #include "device/device.hpp"
-
-enum class OperatorType
-{
-    Add,
-    Mul,
-    Sub,
-    Div,
-    MatMul,
-    Conv,
-    Sigmoid,
-    Constant,
-    Split,
-    Concat,
-    Slice,
-    Gather,
-    Shape,
-    Reshape,
-    Softmax,
-    Transpose,
-    Resize,
-    MaxPool
-};
-
-enum class OperatorExecuteResult
-{
-    SUCCESS,
-    INPUT_TENSOR_ERROR,
-    INPUT_TENSOR_VALUE_ERROR,
-    OUTPUT_TENSOR_ERROR,
-    ATTRIBUTE_ERROR,
-    DATA_TYPE_ERROR,
-    SHAPE_MISMATCH_ERROR,
-    UNSUPPORTED_OPERATION,
-    MEMORY_ALLOCATION_ERROR,
-    UNKNOWN_ERROR,
-    DEVICE_UNSUPPORTED
-};
+#include "enums.hpp"
 
 namespace OperatorUtils
 {

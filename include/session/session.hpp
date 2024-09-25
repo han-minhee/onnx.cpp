@@ -9,6 +9,7 @@
 #include "graph/graph.hpp"
 #include "tensor/tensor.hpp"
 #include "device/device.hpp"
+#include "enums.hpp"
 
 struct SessionConfig
 {

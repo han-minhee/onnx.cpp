@@ -2,7 +2,7 @@
 #include <iostream>
 #include <fstream>
 
-#include "onnx/onnx.proto3.pb.h"
+#include "onnx.pb.h"
 
 #include "session/session.hpp"
 #include "operator/operator.hpp"
@@ -169,7 +169,7 @@ void Session::executeNode(const Node &node)
         output_tensors.push_back(&output_tensor);
     }
 
-    OperatorExecuteResult result = op->execute(input_tensors, output_tensors, node.getAttributes());
+    OperatorExecuteResult result = op->execute(input_tensors, output_tensors, node.getAttributes(), sessionConfig.device_type);
     if (result != OperatorExecuteResult::SUCCESS)
     {
         throw std::runtime_error("Operator execution failed for node: " + node.getName());

@@ -1,4 +1,4 @@
-#include "operator/aux_operator/elementwise_operator.hpp"
+#include "operator/cpu/elementwise_operator.hpp"
 
 size_t computeOffset(const std::vector<size_t> &indices,
                      const std::vector<size_t> &strides,

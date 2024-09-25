@@ -2,7 +2,7 @@
 #include <type_traits>
 
 #include "operator/operators.hpp"
-#include "operator/aux_operator/elementwise_operator.hpp"
+#include "operator/cpu/elementwise_operator.hpp"
 
 std::vector<std::vector<size_t>> AddOperator::inferOutputShapes(const std::vector<Tensor> &inputs,
                                                                 const std::unordered_map<std::string, Node::AttributeValue> &attributes)
@@ -18,7 +18,7 @@ std::vector<TensorDataType> AddOperator::inferOutputDataTypes(const std::vector<
 
 OperatorExecuteResult AddOperator::execute(const std::vector<Tensor> &inputs, std::vector<Tensor *> &outputs,
                                            const std::unordered_map<std::string, Node::AttributeValue> &attributes,
-                                           DeviceType deviceType = DeviceType::CPU)
+                                           DeviceType deviceType)
 {
     switch (deviceType)
     {

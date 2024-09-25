@@ -156,8 +156,6 @@ namespace OperatorUtils
             return "INPUT_TENSOR_ERROR";
         case OperatorExecuteResult::INPUT_TENSOR_VALUE_ERROR:
             return "INPUT_TENSOR_VALUE_ERROR";
-        // case OperatorExecuteResult::DIVIDE_BY_ZERO_ERROR:
-        //     return "DIVIDE_BY_ZERO_ERROR";
         case OperatorExecuteResult::OUTPUT_TENSOR_ERROR:
             return "OUTPUT_TENSOR_ERROR";
         case OperatorExecuteResult::ATTRIBUTE_ERROR:

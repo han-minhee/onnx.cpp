@@ -1,6 +1,6 @@
 #include <functional>
 #include "operator/operators.hpp"
-#include "operator/aux_operator/elementwise_operator.hpp"
+#include "operator/cpu/elementwise_operator.hpp"
 namespace CPU_OP
 {
     OperatorExecuteResult DivOperatorImpl::execute(const std::vector<Tensor> &inputs, std::vector<Tensor *> &outputs,

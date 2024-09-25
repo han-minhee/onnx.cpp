@@ -1,19 +1,7 @@
 #ifndef DEVICE_HPP
 #define DEVICE_HPP
 
-enum class DeviceType
-{
-    CPU,
-#ifdef USE_HIP
-    HIP,
-#endif
-
-#ifdef USE_SYCL
-    SYCL
-#endif
-
-};
-
+#include "enums.hpp"
 namespace DeviceUtils
 {
     std::string DeviceTypeToString(DeviceType type);

@@ -7,8 +7,9 @@
 #include <optional>
 #include <variant>
 #include "tensor/tensor.hpp"
-#include "operator/operator.hpp"
+#include "enums.hpp"
 
+class Operator;
 class Node
 {
 public:
@@ -36,7 +37,6 @@ private:
     std::string name;
     std::string op_type;
 
-    // inside a session, there will be a map of <string,Operator*> to get the operator
     Operator *op;
     std::vector<std::string> inputNames;
     std::vector<std::string> outputNames;

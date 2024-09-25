@@ -78,10 +78,20 @@ TEST(OperatorTest0, AddOperatorBasic)
     Tensor t1 = create_tensor(TensorDataType::FLOAT32, {2, 2}, {1.0f, 2.0f, 3.0f, 4.0f});
     Tensor t2 = create_tensor(TensorDataType::FLOAT32, {2, 2}, {5.0f, 6.0f, 7.0f, 8.0f});
     Tensor expected = create_tensor(TensorDataType::FLOAT32, {2, 2}, {6.0f, 8.0f, 10.0f, 12.0f});
-    Tensor output;
 
     AddOperator add_op;
-    run_and_check_operator(add_op, {t1, t2}, {&output}, {expected});
+
+    // get the output shapes and data types, initialize the output
+    std::vector<std::vector<size_t>> output_shapes = add_op.inferOutputShapes({t1, t2}, {});
+    std::vector<TensorDataType> output_data_types = add_op.inferOutputDataTypes({t1, t2}, {});
+    
+    std::vector<Tensor*> outputs;
+    for (size_t i = 0; i < output_shapes.size(); i++)
+    {
+        outputs.push_back(new Tensor(output_data_types[i], output_shapes[i]));
+    }
+
+    run_and_check_operator(add_op, {t1, t2}, outputs, {expected});
 }
 
 TEST(OperatorTest0, AddOperatorBroadcastScalar)

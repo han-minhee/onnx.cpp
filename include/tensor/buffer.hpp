@@ -5,12 +5,7 @@
 #include <vector>
 #include <memory>
 #include <stdexcept>
-
-enum class BufferOperationResult
-{
-    SUCCESS,
-    FAILURE
-};
+#include "enums.hpp"
 
 class Buffer
 {

@@ -12,20 +12,7 @@
 
 #include "device/device.hpp"
 #include "tensor/buffer.hpp"
-
-enum class TensorDataType
-{
-    UNDEFINED,
-    FLOAT32,
-    FLOAT64,
-    INT32,
-    INT64,
-    INT8,
-    UINT8,
-    
-    /// XXX: Should "half" included in the CPU backend? AVX512 can use float16, but what about non-AVX512 implementations?
-    FLOAT16
-};
+#include "enums.hpp"
 
 class Tensor
 {

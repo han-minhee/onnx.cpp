@@ -4,7 +4,7 @@
 #include <string>
 #include "tensor/tensor.hpp"
 #include "graph/graph.hpp"
-#include "onnx/onnx.proto3.pb.h" // Include the generated protobuf header
+#include "onnx.pb.h" // Include the generated protobuf header
 
 TensorDataType convertONNXDataType(int onnx_data_type);
 Tensor parseONNXTensor(const onnx::TensorProto &onnx_tensor);
