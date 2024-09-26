@@ -31,7 +31,6 @@ enum class TensorCompareResult
     DATA_MISMATCH
 };
 
-
 enum class OperatorType
 {
     Add,

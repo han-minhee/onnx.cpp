@@ -29,7 +29,6 @@ int CpuBuffer::getDeviceId() const
     return 0;
 }
 
-
 void *CpuBuffer::getDataPointer()
 {
     return data_;
@@ -71,7 +70,7 @@ void CpuBuffer::resize(size_t num_elements)
 
 BufferOperationResult CpuBuffer::toHost()
 {
-    // Already on CPU
+
     return BufferOperationResult::SUCCESS;
 }
 
@@ -83,13 +82,13 @@ BufferOperationResult CpuBuffer::to(DeviceType deviceType)
     }
     else
     {
-        // Implement data transfer to other devices if needed
+
         return BufferOperationResult::NOT_IMPLEMENTED;
     }
 }
 
 BufferOperationResult CpuBuffer::offload(DeviceType deviceType)
 {
-    // Implement offloading if needed
+
     return BufferOperationResult::NOT_IMPLEMENTED;
 }

@@ -8,16 +8,29 @@
 #include "tensor/buffer.hpp"
 #include "tensor/tensor_utils.hpp"
 
-Tensor::Tensor()
-    : data_type_(TensorDataType::UNDEFINED), num_elements_(0), buffer_(nullptr)
+Tensor::Tensor(DeviceType device_type, size_t device_id)
+    : data_type_(TensorDataType::UNDEFINED), num_elements_(0), buffer_(nullptr), device_type_(device_type), device_id_(device_id)
 {
 }
 
-Tensor::Tensor(TensorDataType dtype, const std::vector<size_t> &dims)
-    : data_type_(dtype), dimensions_(dims), num_elements_(calcNumElements(dims))
+Tensor::Tensor(TensorDataType dtype, const std::vector<size_t> &dims, DeviceType device_type, size_t device_id)
+    : data_type_(dtype), dimensions_(dims), num_elements_(calcNumElements(dims)), device_type_(device_type), device_id_(device_id)
 {
     strides_ = calcStrides(dims);
-    buffer_ = std::make_shared<CpuBuffer>(dtype, num_elements_);
+    switch (device_type_)
+    {
+    case DeviceType::CPU:
+        buffer_ = std::make_shared<CpuBuffer>(dtype, num_elements_);
+        break;
+#ifdef USE_HIP
+    case DeviceType::HIP:
+        buffer_ = std::make_shared<HipBuffer>(dtype, num_elements_);
+        break;
+#endif
+
+    default:
+        throw std::runtime_error("Unsupported device type");
+    }
 }
 
 size_t Tensor::calcNumElements(const std::vector<size_t> &dims)
@@ -45,7 +58,6 @@ const std::vector<size_t> &Tensor::getStrides() const
     return strides_;
 }
 
-
 std::shared_ptr<Buffer> Tensor::getBuffer()
 {
     return buffer_;
@@ -71,9 +83,9 @@ void Tensor::reshape(const std::vector<size_t> &new_dims)
     size_t new_num_elements = calcNumElements(new_dims);
     if (new_num_elements != num_elements_)
     {
-        std:: cerr << "New number of elements does not match the old number of elements." << std::endl;
-        std:: cerr << "Old number of elements: " << num_elements_ << std::endl;
-        std:: cerr << "New number of elements: " << new_num_elements << std::endl;
+        std::cerr << "New number of elements does not match the old number of elements." << std::endl;
+        std::cerr << "Old number of elements: " << num_elements_ << std::endl;
+        std::cerr << "New number of elements: " << new_num_elements << std::endl;
         throw std::runtime_error("Number of elements mismatch.");
     }
     dimensions_ = new_dims;
@@ -123,8 +135,26 @@ void Tensor::setData(const std::vector<T> &data)
     {
         throw std::runtime_error("Data size mismatch");
     }
-    T *buffer_data = this->data<T>();
-    std::copy(data.begin(), data.end(), buffer_data);
+
+    /// XXX: It should bring back the buffer to the device if it was offloaded
+    switch (device_type_)
+    {
+    case DeviceType::CPU:
+    {
+        T *buffer_data = this->data<T>();
+        std::copy(data.begin(), data.end(), buffer_data);
+        break;
+    }
+#ifdef USE_HIP
+    case DeviceType::HIP:
+    {
+        hipMemcpy(buffer_->getDataPointer(), data.data(), num_elements_ * sizeof(T), hipMemcpyHostToDevice);
+        break;
+    }
+#endif
+    default:
+        throw std::runtime_error("Unsupported device type");
+    }
 }
 
 void Tensor::freeData()
@@ -158,6 +188,8 @@ std::string Tensor::toString() const
 {
     std::ostringstream oss;
     oss << "Tensor: dtype=" << TensorUtils::getDataTypeName(data_type_) << ", dims=[";
+
+    // Print dimensions
     for (size_t i = 0; i < dimensions_.size(); ++i)
     {
         oss << dimensions_[i];
@@ -167,103 +199,49 @@ std::string Tensor::toString() const
         }
     }
     oss << "], data=[";
+
+    // Helper lambda to handle data printing
+    auto printData = [&](auto *data_ptr)
+    {
+        size_t num_printed = 0;
+        for (size_t i = 0; i < num_elements_; ++i)
+        {
+            oss << data_ptr[i];
+            if (i < num_elements_ - 1)
+            {
+                oss << ", ";
+            }
+            if (++num_printed > 5)
+            {
+                oss << "...";
+                break;
+            }
+        }
+    };
+
     size_t num_printed = 0;
 
     switch (data_type_)
     {
     case TensorDataType::FLOAT32:
-    {
-        const float *data_ptr = data<float>();
-        for (size_t i = 0; i < num_elements_; ++i)
-        {
-            oss << data_ptr[i];
-            if (i < num_elements_ - 1)
-            {
-                oss << ", ";
-            }
-            if (num_printed++ >= 5)
-            {
-                oss << "...";
-                break;
-            }
-        }
+        printData(data<float>());
         break;
-    }
+
     case TensorDataType::FLOAT64:
-    {
-        const double *data_ptr = data<double>();
-        for (size_t i = 0; i < num_elements_; ++i)
-        {
-            oss << data_ptr[i];
-            if (i < num_elements_ - 1)
-            {
-                oss << ", ";
-            }
-            if (num_printed++ >= 5)
-            {
-                oss << "...";
-                break;
-            }
-        }
+        printData(data<double>());
         break;
-    }
 
     case TensorDataType::INT32:
-    {
-        const int32_t *data_ptr = data<int32_t>();
-        for (size_t i = 0; i < num_elements_; ++i)
-        {
-            oss << data_ptr[i];
-            if (i < num_elements_ - 1)
-            {
-                oss << ", ";
-            }
-            if (num_printed++ >= 5)
-            {
-                oss << "...";
-                break;
-            }
-        }
+        printData(data<int32_t>());
         break;
-    }
 
     case TensorDataType::INT64:
-    {
-        const int64_t *data_ptr = data<int64_t>();
-        for (size_t i = 0; i < num_elements_; ++i)
-        {
-            oss << data_ptr[i];
-            if (i < num_elements_ - 1)
-            {
-                oss << ", ";
-            }
-            if (num_printed++ >= 5)
-            {
-                oss << "...";
-                break;
-            }
-        }
+        printData(data<int64_t>());
         break;
-    }
 
     case TensorDataType::INT8:
-    {
-        const int8_t *data_ptr = data<int8_t>();
-        for (size_t i = 0; i < num_elements_; ++i)
-        {
-            oss << static_cast<int>(data_ptr[i]);
-            if (i < num_elements_ - 1)
-            {
-                oss << ", ";
-            }
-            if (num_printed++ >= 5)
-            {
-                oss << "...";
-                break;
-            }
-        }
+        printData(reinterpret_cast<const int *>(data<int8_t>()));
         break;
-    }
 
     default:
         oss << "Unsupported data type";
@@ -272,8 +250,6 @@ std::string Tensor::toString() const
     oss << "]";
     return oss.str();
 }
-
-
 
 void Tensor::allocateBuffer(TensorDataType dtype, size_t num_elements)
 {
@@ -288,7 +264,6 @@ void Tensor::allocateBuffer(TensorDataType dtype, size_t num_elements)
     template const T *Tensor::data<T>() const; \
     template void Tensor::setData<T>(const std::vector<T> &data);
 
-
 // no void type is allowed
 INSTANTIATE_TENSOR_TEMPLATE(float)
 INSTANTIATE_TENSOR_TEMPLATE(double)
@@ -299,7 +274,7 @@ INSTANTIATE_TENSOR_TEMPLATE(uint8_t)
 
 #undef INSTANTIATE_TENSOR_TEMPLATE
 
-Tensor create_tensor(TensorDataType dtype, const std::vector<size_t> &dims, const std::vector<float> &data)
+Tensor create_tensor(TensorDataType dtype, const std::vector<size_t> &dims, const std::vector<float> &data, DeviceType device_type, size_t device_id)
 {
     size_t num_elements = std::accumulate(dims.begin(), dims.end(), 1, std::multiplies<size_t>());
 
@@ -308,7 +283,7 @@ Tensor create_tensor(TensorDataType dtype, const std::vector<size_t> &dims, cons
         throw std::invalid_argument("Data size does not match tensor dimensions.");
     }
 
-    Tensor tensor(dtype, dims);
+    Tensor tensor(dtype, dims, device_type, device_id);
 
     switch (dtype)
     {
