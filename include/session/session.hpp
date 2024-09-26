@@ -26,6 +26,12 @@ public:
     Tensor &getTensorByName(const std::string &name);
     Tensor &getOrAllocateIntermediateTensor(const std::string &name, const std::vector<size_t> &dims, TensorDataType dtype);
 
+    // currently bool is used as a return type to indicate success or failure
+    bool selectDevice(DeviceType type, size_t deviceIndex = 0);
+    bool addDevice(const Device &device);
+    Device &getDeviceByName(const std::string &name, size_t deviceIndex = 0);
+    Device &getDeviceByType(DeviceType type, size_t deviceIndex = 0);
+
     // methods for testing
     std::unordered_map<std::string, Tensor> runWithValidation(const std::unordered_map<std::string, Tensor> &inputs);
     void executeAndValidateNode(const Node &node);
@@ -37,9 +43,10 @@ private:
     Graph graph;
     void prepareExecution(const std::unordered_map<std::string, Tensor> &inputs);
     void executeNode(const Node &node);
+
     std::unordered_map<std::string, Tensor> tensorMap;
     std::unordered_map<std::string, Tensor> intermediateTensorPool;
-    std::vector<Node> executionOrder;
+
     std::vector<std::string> graphInputNames;
     std::vector<std::string> graphOutputNames;
 };

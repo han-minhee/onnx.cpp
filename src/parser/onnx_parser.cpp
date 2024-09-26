@@ -6,12 +6,7 @@
 #include "graph/graph.hpp"
 #include "graph/node.hpp"
 
-// 4: Unsupported attribute type for: coordinate_transformation_mode
-// 4: Unsupported attribute type for: mode
-// 4: Unsupported attribute type for: nearest_mode
-// 4: Unsupported attribute type for: coordinate_transformation_mode
-// 4: Unsupported attribute type for: mode
-// 4: Unsupported attribute type for: nearest_mode
+#include "tensor/tensor_utils.hpp"
 
 using AttributeValue = std::variant<int, float, std::vector<int64_t>, std::vector<float>, Tensor>;
 
@@ -66,39 +61,29 @@ Tensor parseONNXTensor(const onnx::TensorProto &onnx_tensor)
             throw std::runtime_error("Size of raw_data does not match expected size.");
         }
 
-        // Allocate new data buffer
-        void *data = nullptr;
+        // Allocate buffer for the tensor
+        tensor.allocateBuffer(data_type, num_elements);
+
+        // Copy data directly into the tensor's buffer
         switch (data_type)
         {
         case TensorDataType::FLOAT32:
-            data = new float[num_elements];
-            std::memcpy(data, raw_data.data(), expected_size);
-            tensor.setDataPointer(static_cast<float *>(data), dims);
+            std::memcpy(tensor.data<float>(), raw_data.data(), expected_size);
             break;
         case TensorDataType::FLOAT64:
-            data = new double[num_elements];
-            std::memcpy(data, raw_data.data(), expected_size);
-            tensor.setDataPointer(static_cast<double *>(data), dims);
+            std::memcpy(tensor.data<double>(), raw_data.data(), expected_size);
             break;
         case TensorDataType::INT32:
-            data = new int32_t[num_elements];
-            std::memcpy(data, raw_data.data(), expected_size);
-            tensor.setDataPointer(static_cast<int32_t *>(data), dims);
+            std::memcpy(tensor.data<int32_t>(), raw_data.data(), expected_size);
             break;
         case TensorDataType::INT64:
-            data = new int64_t[num_elements];
-            std::memcpy(data, raw_data.data(), expected_size);
-            tensor.setDataPointer(static_cast<int64_t *>(data), dims);
+            std::memcpy(tensor.data<int64_t>(), raw_data.data(), expected_size);
             break;
         case TensorDataType::INT8:
-            data = new int8_t[num_elements];
-            std::memcpy(data, raw_data.data(), expected_size);
-            tensor.setDataPointer(static_cast<int8_t *>(data), dims);
+            std::memcpy(tensor.data<int8_t>(), raw_data.data(), expected_size);
             break;
         case TensorDataType::UINT8:
-            data = new uint8_t[num_elements];
-            std::memcpy(data, raw_data.data(), expected_size);
-            tensor.setDataPointer(static_cast<uint8_t *>(data), dims);
+            std::memcpy(tensor.data<uint8_t>(), raw_data.data(), expected_size);
             break;
         default:
             throw std::runtime_error("Unsupported data type.");
@@ -107,6 +92,8 @@ Tensor parseONNXTensor(const onnx::TensorProto &onnx_tensor)
     else
     {
         // Handle the case where data is stored in repeated fields
+        tensor.allocateBuffer(data_type, num_elements);
+
         switch (data_type)
         {
         case TensorDataType::FLOAT32:
@@ -116,9 +103,7 @@ Tensor parseONNXTensor(const onnx::TensorProto &onnx_tensor)
             {
                 throw std::runtime_error("Mismatch in number of elements for FLOAT32 data.");
             }
-            float *data = new float[num_elements];
-            std::copy(onnx_tensor.float_data().begin(), onnx_tensor.float_data().end(), data);
-            tensor.setDataPointer(data, dims);
+            std::copy(onnx_tensor.float_data().begin(), onnx_tensor.float_data().end(), tensor.data<float>());
             break;
         }
         case TensorDataType::FLOAT64:
@@ -128,9 +113,7 @@ Tensor parseONNXTensor(const onnx::TensorProto &onnx_tensor)
             {
                 throw std::runtime_error("Mismatch in number of elements for FLOAT64 data.");
             }
-            double *data = new double[num_elements];
-            std::copy(onnx_tensor.double_data().begin(), onnx_tensor.double_data().end(), data);
-            tensor.setDataPointer(data, dims);
+            std::copy(onnx_tensor.double_data().begin(), onnx_tensor.double_data().end(), tensor.data<double>());
             break;
         }
         case TensorDataType::INT32:
@@ -140,9 +123,7 @@ Tensor parseONNXTensor(const onnx::TensorProto &onnx_tensor)
             {
                 throw std::runtime_error("Mismatch in number of elements for INT32 data.");
             }
-            int32_t *data = new int32_t[num_elements];
-            std::copy(onnx_tensor.int32_data().begin(), onnx_tensor.int32_data().end(), data);
-            tensor.setDataPointer(data, dims);
+            std::copy(onnx_tensor.int32_data().begin(), onnx_tensor.int32_data().end(), tensor.data<int32_t>());
             break;
         }
         case TensorDataType::INT64:
@@ -152,9 +133,7 @@ Tensor parseONNXTensor(const onnx::TensorProto &onnx_tensor)
             {
                 throw std::runtime_error("Mismatch in number of elements for INT64 data.");
             }
-            int64_t *data = new int64_t[num_elements];
-            std::copy(onnx_tensor.int64_data().begin(), onnx_tensor.int64_data().end(), data);
-            tensor.setDataPointer(data, dims);
+            std::copy(onnx_tensor.int64_data().begin(), onnx_tensor.int64_data().end(), tensor.data<int64_t>());
             break;
         }
         case TensorDataType::INT8:
@@ -164,10 +143,9 @@ Tensor parseONNXTensor(const onnx::TensorProto &onnx_tensor)
             {
                 throw std::runtime_error("Mismatch in number of elements for INT8 data.");
             }
-            int8_t *data = new int8_t[num_elements];
-            std::transform(onnx_tensor.int32_data().begin(), onnx_tensor.int32_data().end(), data, [](int32_t val)
+            int8_t *data_ptr = tensor.data<int8_t>();
+            std::transform(onnx_tensor.int32_data().begin(), onnx_tensor.int32_data().end(), data_ptr, [](int32_t val)
                            { return static_cast<int8_t>(val); });
-            tensor.setDataPointer(data, dims);
             break;
         }
         case TensorDataType::UINT8:
@@ -177,10 +155,9 @@ Tensor parseONNXTensor(const onnx::TensorProto &onnx_tensor)
             {
                 throw std::runtime_error("Mismatch in number of elements for UINT8 data.");
             }
-            uint8_t *data = new uint8_t[num_elements];
-            std::transform(onnx_tensor.int32_data().begin(), onnx_tensor.int32_data().end(), data, [](int32_t val)
+            uint8_t *data_ptr = tensor.data<uint8_t>();
+            std::transform(onnx_tensor.int32_data().begin(), onnx_tensor.int32_data().end(), data_ptr, [](int32_t val)
                            { return static_cast<uint8_t>(val); });
-            tensor.setDataPointer(data, dims);
             break;
         }
         default:
@@ -191,102 +168,102 @@ Tensor parseONNXTensor(const onnx::TensorProto &onnx_tensor)
     return tensor;
 }
 
-Graph parseONNX(const std::string &file_path)
-{
-    // Create an ONNX model object
-    onnx::ModelProto model;
+// Graph parseONNX(const std::string &file_path)
+// {
+//     // Create an ONNX model object
+//     onnx::ModelProto model;
 
-    // Open the file as an input stream
-    std::ifstream input(file_path, std::ios::in | std::ios::binary);
-    if (!input)
-    {
-        std::cerr << "Cannot open the file: " << file_path << std::endl;
-        throw std::runtime_error("Failed to open file.");
-    }
+//     // Open the file as an input stream
+//     std::ifstream input(file_path, std::ios::in | std::ios::binary);
+//     if (!input)
+//     {
+//         std::cerr << "Cannot open the file: " << file_path << std::endl;
+//         throw std::runtime_error("Failed to open file.");
+//     }
 
-    // Parse the file
-    if (!model.ParseFromIstream(&input))
-    {
-        std::cerr << "Failed to parse ONNX file." << std::endl;
-        throw std::runtime_error("Failed to parse ONNX file.");
-    }
+//     // Parse the file
+//     if (!model.ParseFromIstream(&input))
+//     {
+//         std::cerr << "Failed to parse ONNX file." << std::endl;
+//         throw std::runtime_error("Failed to parse ONNX file.");
+//     }
 
-    // Create a graph object to hold the computation graph
-    Graph graph;
+//     // Create a graph object to hold the computation graph
+//     Graph graph;
 
-    // Extract the graph from the model
-    const onnx::GraphProto &onnx_graph = model.graph();
+//     // Extract the graph from the model
+//     const onnx::GraphProto &onnx_graph = model.graph();
 
-    // Iterate over the nodes in the graph
-    for (int i = 0; i < onnx_graph.node_size(); ++i)
-    {
-        const onnx::NodeProto &onnx_node = onnx_graph.node(i);
+//     // Iterate over the nodes in the graph
+//     for (int i = 0; i < onnx_graph.node_size(); ++i)
+//     {
+//         const onnx::NodeProto &onnx_node = onnx_graph.node(i);
 
-        // Create a Node object for each ONNX node
-        Node node(onnx_node.name(), onnx_node.op_type());
+//         // Create a Node object for each ONNX node
+//         Node node(onnx_node.name(), onnx_node.op_type());
 
-        // Add inputs to the node
-        for (int j = 0; j < onnx_node.input_size(); ++j)
-        {
-            node.addInput(onnx_node.input(j));
-        }
+//         // Add inputs to the node
+//         for (int j = 0; j < onnx_node.input_size(); ++j)
+//         {
+//             node.addInput(onnx_node.input(j));
+//         }
 
-        // Add outputs to the node
-        for (int j = 0; j < onnx_node.output_size(); ++j)
-        {
-            node.addOutput(onnx_node.output(j));
-        }
+//         // Add outputs to the node
+//         for (int j = 0; j < onnx_node.output_size(); ++j)
+//         {
+//             node.addOutput(onnx_node.output(j));
+//         }
 
-        // Parse attributes if any
-        for (int j = 0; j < onnx_node.attribute_size(); ++j)
-        {
-            const onnx::AttributeProto &attr = onnx_node.attribute(j);
+//         // Parse attributes if any
+//         for (int j = 0; j < onnx_node.attribute_size(); ++j)
+//         {
+//             const onnx::AttributeProto &attr = onnx_node.attribute(j);
 
-            // Check the type of the attribute using the type() function
-            switch (attr.type())
-            {
-            case onnx::AttributeProto_AttributeType_TENSOR:
-            {
-                Tensor attribute_tensor = parseONNXTensor(attr.t());
-                node.addAttribute(attr.name(), attribute_tensor);
-                break;
-            }
-            case onnx::AttributeProto_AttributeType_INT:
-            {
-                node.addAttribute(attr.name(), static_cast<int>(attr.i()));
-                break;
-            }
-            case onnx::AttributeProto_AttributeType_FLOAT:
-            {
-                node.addAttribute(attr.name(), static_cast<float>(attr.f()));
-                break;
-            }
-            case onnx::AttributeProto_AttributeType_INTS:
-            {
-                std::vector<int64_t> int_vals(attr.ints().begin(), attr.ints().end());
-                node.addAttribute(attr.name(), int_vals);
-                break;
-            }
-            case onnx::AttributeProto_AttributeType_FLOATS:
-            {
-                std::vector<float> float_vals(attr.floats().begin(), attr.floats().end());
-                node.addAttribute(attr.name(), float_vals);
-                break;
-            }
-            case onnx::AttributeProto_AttributeType_STRING:
-            {
-                node.addAttribute(attr.name(), attr.s());
-                break;
-            }
-            default:
-                std::cerr << "Unsupported attribute type for: " << attr.name() << std::endl;
-                break;
-            }
-        }
+//             // Check the type of the attribute using the type() function
+//             switch (attr.type())
+//             {
+//             case onnx::AttributeProto_AttributeType_TENSOR:
+//             {
+//                 Tensor attribute_tensor = parseONNXTensor(attr.t());
+//                 node.addAttribute(attr.name(), attribute_tensor);
+//                 break;
+//             }
+//             case onnx::AttributeProto_AttributeType_INT:
+//             {
+//                 node.addAttribute(attr.name(), static_cast<int>(attr.i()));
+//                 break;
+//             }
+//             case onnx::AttributeProto_AttributeType_FLOAT:
+//             {
+//                 node.addAttribute(attr.name(), static_cast<float>(attr.f()));
+//                 break;
+//             }
+//             case onnx::AttributeProto_AttributeType_INTS:
+//             {
+//                 std::vector<int64_t> int_vals(attr.ints().begin(), attr.ints().end());
+//                 node.addAttribute(attr.name(), int_vals);
+//                 break;
+//             }
+//             case onnx::AttributeProto_AttributeType_FLOATS:
+//             {
+//                 std::vector<float> float_vals(attr.floats().begin(), attr.floats().end());
+//                 node.addAttribute(attr.name(), float_vals);
+//                 break;
+//             }
+//             case onnx::AttributeProto_AttributeType_STRING:
+//             {
+//                 node.addAttribute(attr.name(), attr.s());
+//                 break;
+//             }
+//             default:
+//                 std::cerr << "Unsupported attribute type for: " << attr.name() << std::endl;
+//                 break;
+//             }
+//         }
 
-        // Add the node to the graph
-        graph.addNode(node);
-    }
+//         // Add the node to the graph
+//         graph.addNode(node);
+//     }
 
-    return graph;
-}
+//     return graph;
+// }

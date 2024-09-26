@@ -4,7 +4,7 @@ namespace CPU_OP
 {
 
     template <typename T>
-    void transposeData(const Tensor &input_tensor, Tensor *output_tensor, const std::vector<size_t> &perm)
+    void executeTranspose(const Tensor &input_tensor, Tensor *output_tensor, const std::vector<size_t> &perm)
     {
         size_t rank = input_tensor.getNDim();
         size_t num_elements = input_tensor.getNumElements();
@@ -17,9 +17,7 @@ namespace CPU_OP
             output_shape[i] = input_shape[perm[i]];
         }
 
-        // Compute strides
-        const std::vector<size_t> &input_strides = input_tensor.getStrides();
-
+        // Compute output strides
         std::vector<size_t> output_strides(rank);
         output_strides[rank - 1] = 1;
         for (int i = rank - 2; i >= 0; --i)
@@ -27,8 +25,17 @@ namespace CPU_OP
             output_strides[i] = output_strides[i + 1] * output_shape[i + 1];
         }
 
+        // Ensure output tensor's buffer is allocated correctly
+        output_tensor->reshape(output_shape);
+        output_tensor->setDataType(input_tensor.getDataType());
+
+        if (!output_tensor->data<T>() || output_tensor->getNumElements() != num_elements)
+        {
+            output_tensor->allocateBuffer(input_tensor.getDataType(), num_elements);
+        }
+
         const T *input_data = input_tensor.data<T>();
-        T *output_data = new T[num_elements];
+        T *output_data = output_tensor->data<T>(); // Directly get the pointer from the buffer
 
         for (size_t linear_idx = 0; linear_idx < num_elements; ++linear_idx)
         {
@@ -37,8 +44,8 @@ namespace CPU_OP
 
             for (size_t i = 0; i < rank; ++i)
             {
-                idx[i] = remaining / input_strides[i];
-                remaining = remaining % input_strides[i];
+                idx[i] = remaining / input_tensor.getStrides()[i];
+                remaining = remaining % input_tensor.getStrides()[i];
             }
 
             // Apply permutation to get output indices
@@ -57,9 +64,6 @@ namespace CPU_OP
 
             output_data[output_linear_idx] = input_data[linear_idx];
         }
-
-        output_tensor->setDataType(input_tensor.getDataType());
-        output_tensor->setDataPointer<T>(output_data, output_shape);
     }
 
     OperatorExecuteResult TransposeOperatorImpl::execute(
@@ -116,22 +120,22 @@ namespace CPU_OP
         switch (dtype)
         {
         case TensorDataType::FLOAT32:
-            transposeData<float>(input_tensor, output_tensor, perm);
+            executeTranspose<float>(input_tensor, output_tensor, perm);
             break;
         case TensorDataType::FLOAT64:
-            transposeData<double>(input_tensor, output_tensor, perm);
+            executeTranspose<double>(input_tensor, output_tensor, perm);
             break;
         case TensorDataType::INT32:
-            transposeData<int32_t>(input_tensor, output_tensor, perm);
+            executeTranspose<int32_t>(input_tensor, output_tensor, perm);
             break;
         case TensorDataType::INT64:
-            transposeData<int64_t>(input_tensor, output_tensor, perm);
+            executeTranspose<int64_t>(input_tensor, output_tensor, perm);
             break;
         case TensorDataType::INT8:
-            transposeData<int8_t>(input_tensor, output_tensor, perm);
+            executeTranspose<int8_t>(input_tensor, output_tensor, perm);
             break;
         case TensorDataType::UINT8:
-            transposeData<uint8_t>(input_tensor, output_tensor, perm);
+            executeTranspose<uint8_t>(input_tensor, output_tensor, perm);
             break;
         default:
             return OperatorExecuteResult::DATA_TYPE_ERROR;
@@ -139,5 +143,4 @@ namespace CPU_OP
 
         return OperatorExecuteResult::SUCCESS;
     }
-
 }

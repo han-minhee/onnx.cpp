@@ -126,7 +126,7 @@ namespace CPU_OP
 
         for (size_t i = 0; i < r; ++i)
         {
-            effective_ends[i] = dims[i]; // dims from input tensor
+            effective_ends[i] = dims[i];
         }
 
         // Update effective starts, ends, and steps based on axes
@@ -202,38 +202,15 @@ namespace CPU_OP
             output_shape[i] = dim_output;
         }
 
-        // Prepare the output tensor with the public methods from Tensor
+        // Allocate the output tensor buffer
         output_tensor->reshape(output_shape);
         output_tensor->setDataType(input_tensor.getDataType());
-        switch (input_tensor.getDataType())
-        {
-        case TensorDataType::FLOAT32:
-            output_tensor->setDataPointer(new float[output_tensor->getNumElements()], output_shape);
-            break;
-        case TensorDataType::FLOAT64:
-            output_tensor->setDataPointer(new double[output_tensor->getNumElements()], output_shape);
-            break;
-        case TensorDataType::INT32:
-            output_tensor->setDataPointer(new int32_t[output_tensor->getNumElements()], output_shape);
-            break;
-        case TensorDataType::INT64:
-            output_tensor->setDataPointer(new int64_t[output_tensor->getNumElements()], output_shape);
-            break;
-        case TensorDataType::INT8:
-            output_tensor->setDataPointer(new int8_t[output_tensor->getNumElements()], output_shape);
-            break;
-        case TensorDataType::UINT8:
-            output_tensor->setDataPointer(new uint8_t[output_tensor->getNumElements()], output_shape);
-            break;
-        default:
-            return OperatorExecuteResult::DATA_TYPE_ERROR;
-        }
+        output_tensor->allocateBuffer(input_tensor.getDataType(), output_tensor->getNumElements());
 
         // Now perform slicing
-        // We'll need to iterate over the output tensor and map its indices back to the input tensor
-
         const auto &output_dims = output_shape;
         std::function<void(size_t, size_t, std::vector<int64_t> &, std::vector<int64_t> &)> slice_recursive;
+
         slice_recursive = [&](size_t dim, size_t offset, std::vector<int64_t> &input_idx, std::vector<int64_t> &output_idx)
         {
             if (dim == r)
@@ -293,5 +270,4 @@ namespace CPU_OP
 
         return OperatorExecuteResult::SUCCESS;
     }
-
 }

@@ -5,7 +5,7 @@ namespace CPU_OP
 {
 
     template <typename T>
-    OperatorExecuteResult executeTyped(const Tensor &data, const Tensor &indices, Tensor *output, int axis)
+    OperatorExecuteResult executeGather(const Tensor &data, const Tensor &indices, Tensor *output, int axis)
     {
         // Get the shapes of input tensors
         const std::vector<size_t> &data_shape = data.getDims();
@@ -30,13 +30,14 @@ namespace CPU_OP
         }
 
         // Allocate the output tensor memory
-        size_t num_output_elements = 1;
-        for (size_t dim : output_shape)
+        output->reshape(output_shape);
+        output->setDataType(data.getDataType());
+        if (!output->data<T>() || output->getNumElements() != data.getNumElements())
         {
-            num_output_elements *= dim;
+            output->allocateBuffer(data.getDataType(), output->getNumElements());
         }
 
-        T *output_data = new (std::nothrow) T[num_output_elements];
+        T *output_data = output->data<T>();
         if (!output_data)
         {
             return OperatorExecuteResult::MEMORY_ALLOCATION_ERROR;
@@ -60,7 +61,6 @@ namespace CPU_OP
             int64_t index = indices_ptr[i];
             if (index < -static_cast<int64_t>(data_shape[axis]) || index >= static_cast<int64_t>(data_shape[axis]))
             {
-                delete[] output_data;
                 return OperatorExecuteResult::INPUT_TENSOR_ERROR;
             }
 
@@ -86,10 +86,6 @@ namespace CPU_OP
                 output_data[output_offset++] = data_ptr[data_offset + j];
             }
         }
-
-        // Set data pointer and shape for output tensor
-        output->setDataType(data.getDataType());
-        output->setDataPointer<T>(output_data, output_shape);
 
         return OperatorExecuteResult::SUCCESS;
     }
@@ -133,14 +129,13 @@ namespace CPU_OP
         switch (data.getDataType())
         {
         case TensorDataType::FLOAT32:
-            return executeTyped<float>(data, indices, output, axis);
+            return executeGather<float>(data, indices, output, axis);
         case TensorDataType::INT32:
-            return executeTyped<int32_t>(data, indices, output, axis);
+            return executeGather<int32_t>(data, indices, output, axis);
         case TensorDataType::INT64:
-            return executeTyped<int64_t>(data, indices, output, axis);
+            return executeGather<int64_t>(data, indices, output, axis);
         default:
             return OperatorExecuteResult::DATA_TYPE_ERROR;
         }
     }
-
 }

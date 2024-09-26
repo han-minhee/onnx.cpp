@@ -7,10 +7,10 @@ namespace CPU_OP
 {
 
     template <typename T>
-    OperatorExecuteResult executeConvolution(const Tensor &X, const Tensor &W, const Tensor *B, Tensor *Y,
-                                             const std::vector<int64_t> &pads, const std::vector<int64_t> &strides,
-                                             const std::vector<int64_t> &dilations, int64_t group, size_t N, size_t C,
-                                             size_t H, size_t W_in, size_t M, size_t kH, size_t kW, size_t H_out, size_t W_out)
+    OperatorExecuteResult executeConv(const Tensor &X, const Tensor &W, const Tensor *B, Tensor *Y,
+                                      const std::vector<int64_t> &pads, const std::vector<int64_t> &strides,
+                                      const std::vector<int64_t> &dilations, int64_t group, size_t N, size_t C,
+                                      size_t H, size_t W_in, size_t M, size_t kH, size_t kW, size_t H_out, size_t W_out)
     {
         const T *input_data = X.data<T>();
         const T *weight_data = W.data<T>();
@@ -21,14 +21,24 @@ namespace CPU_OP
             return OperatorExecuteResult::INPUT_TENSOR_ERROR;
         }
 
-        T *output_data = new (std::nothrow) T[N * M * H_out * W_out]();
+
+        // Allocate buffer for output data if not already allocated or if dimensions mismatch
+        if (!Y->data<T>() || Y->getNumElements() != N * M * H_out * W_out)
+        {
+            Y->allocateBuffer(X.getDataType(), N * M * H_out * W_out);
+            Y->reshape({N, M, H_out, W_out});
+        }
+
+        T *output_data = Y->data<T>();
         if (!output_data)
         {
             return OperatorExecuteResult::MEMORY_ALLOCATION_ERROR;
         }
 
+        // Zero-initialize output data
+        std::fill(output_data, output_data + (N * M * H_out * W_out), static_cast<T>(0));
+
         // Perform convolution
-        // Check `group` size in executeConvolution loop
         for (size_t g = 0; g < group; ++g)
         {
             for (size_t n = 0; n < N; ++n) // batch
@@ -73,9 +83,6 @@ namespace CPU_OP
                 }
             }
         }
-
-        Y->setDataType(X.getDataType());
-        Y->setDataPointer<T>(output_data, {N, M, H_out, W_out});
 
         return OperatorExecuteResult::SUCCESS;
     }
@@ -150,23 +157,23 @@ namespace CPU_OP
 
         Tensor *Y = outputs[0];
 
+        // Use appropriate data type for execution
         switch (X.getDataType())
         {
         case TensorDataType::FLOAT32:
-            return executeConvolution<float>(X, W, B, Y, pads, strides, dilations, group, N, C, H, W_in, M, kH, kW, H_out, W_out);
+            return executeConv<float>(X, W, B, Y, pads, strides, dilations, group, N, C, H, W_in, M, kH, kW, H_out, W_out);
         case TensorDataType::FLOAT64:
-            return executeConvolution<double>(X, W, B, Y, pads, strides, dilations, group, N, C, H, W_in, M, kH, kW, H_out, W_out);
+            return executeConv<double>(X, W, B, Y, pads, strides, dilations, group, N, C, H, W_in, M, kH, kW, H_out, W_out);
         case TensorDataType::INT32:
-            return executeConvolution<int32_t>(X, W, B, Y, pads, strides, dilations, group, N, C, H, W_in, M, kH, kW, H_out, W_out);
+            return executeConv<int32_t>(X, W, B, Y, pads, strides, dilations, group, N, C, H, W_in, M, kH, kW, H_out, W_out);
         case TensorDataType::INT64:
-            return executeConvolution<int64_t>(X, W, B, Y, pads, strides, dilations, group, N, C, H, W_in, M, kH, kW, H_out, W_out);
+            return executeConv<int64_t>(X, W, B, Y, pads, strides, dilations, group, N, C, H, W_in, M, kH, kW, H_out, W_out);
         case TensorDataType::INT8:
-            return executeConvolution<int8_t>(X, W, B, Y, pads, strides, dilations, group, N, C, H, W_in, M, kH, kW, H_out, W_out);
+            return executeConv<int8_t>(X, W, B, Y, pads, strides, dilations, group, N, C, H, W_in, M, kH, kW, H_out, W_out);
         case TensorDataType::UINT8:
-            return executeConvolution<uint8_t>(X, W, B, Y, pads, strides, dilations, group, N, C, H, W_in, M, kH, kW, H_out, W_out);
+            return executeConv<uint8_t>(X, W, B, Y, pads, strides, dilations, group, N, C, H, W_in, M, kH, kW, H_out, W_out);
         default:
             return OperatorExecuteResult::DATA_TYPE_ERROR;
         }
     }
-
 }

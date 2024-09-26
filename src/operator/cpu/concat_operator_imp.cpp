@@ -3,7 +3,7 @@
 namespace CPU_OP
 {
     template <typename T>
-    OperatorExecuteResult executeConcatTyped(const std::vector<Tensor> &inputs, Tensor *output, int64_t axis)
+    OperatorExecuteResult executeConcat(const std::vector<Tensor> &inputs, Tensor *output, int64_t axis)
     {
         size_t rank = output->getNDim();
         size_t adjusted_axis = static_cast<size_t>(axis);
@@ -22,9 +22,14 @@ namespace CPU_OP
             inner_size *= output->getDims()[i];
         }
 
-        // Allocate memory for the output tensor
+        // Check and allocate memory for the output tensor using the buffer
         size_t output_num_elements = output->getNumElements();
-        T *output_data = new (std::nothrow) T[output_num_elements];
+        if (!output->getBuffer() || output->getNumElements() != output_num_elements)
+        {
+            output->allocateBuffer(output->getDataType(), output_num_elements);
+        }
+
+        T *output_data = output->data<T>(); // Access the buffer's data
         if (!output_data)
         {
             return OperatorExecuteResult::MEMORY_ALLOCATION_ERROR;
@@ -39,26 +44,15 @@ namespace CPU_OP
                 const T *input_data = input.data<T>();
                 if (!input_data)
                 {
-                    delete[] output_data;
                     return OperatorExecuteResult::INPUT_TENSOR_ERROR;
                 }
-
                 size_t input_axis_dim_size = input.getDims()[adjusted_axis];
                 size_t copy_size = input_axis_dim_size * inner_size;
-
                 size_t input_offset = outer_index * input_axis_dim_size * inner_size;
-
                 std::copy(input_data + input_offset, input_data + input_offset + copy_size, output_data + output_offset);
-
                 output_offset += copy_size;
             }
         }
-
-        output->setDataType(inputs[0].getDataType());
-
-        // Create a copy of the dimensions before calling setDataPointer
-        std::vector<size_t> output_dims = output->getDims();
-        output->setDataPointer<T>(output_data, output_dims);
 
         return OperatorExecuteResult::SUCCESS;
     }
@@ -73,10 +67,9 @@ namespace CPU_OP
             return OperatorExecuteResult::INPUT_TENSOR_ERROR;
         }
 
-        // Get 'axis' attribute
         if (attributes.find("axis") == attributes.end())
         {
-            return OperatorExecuteResult::ATTRIBUTE_ERROR; // axis is required
+            return OperatorExecuteResult::ATTRIBUTE_ERROR;
         }
 
         int64_t axis = std::get<int64_t>(attributes.at("axis"));
@@ -90,7 +83,7 @@ namespace CPU_OP
 
         if (axis < 0 || axis >= static_cast<int64_t>(rank))
         {
-            return OperatorExecuteResult::ATTRIBUTE_ERROR; // Invalid axis
+            return OperatorExecuteResult::ATTRIBUTE_ERROR;
         }
 
         TensorDataType data_type = inputs[0].getDataType();
@@ -133,17 +126,17 @@ namespace CPU_OP
         switch (data_type)
         {
         case TensorDataType::FLOAT32:
-            return executeConcatTyped<float>(inputs, output, axis);
+            return executeConcat<float>(inputs, output, axis);
         case TensorDataType::FLOAT64:
-            return executeConcatTyped<double>(inputs, output, axis);
+            return executeConcat<double>(inputs, output, axis);
         case TensorDataType::INT32:
-            return executeConcatTyped<int32_t>(inputs, output, axis);
+            return executeConcat<int32_t>(inputs, output, axis);
         case TensorDataType::INT64:
-            return executeConcatTyped<int64_t>(inputs, output, axis);
+            return executeConcat<int64_t>(inputs, output, axis);
         case TensorDataType::INT8:
-            return executeConcatTyped<int8_t>(inputs, output, axis);
+            return executeConcat<int8_t>(inputs, output, axis);
         case TensorDataType::UINT8:
-            return executeConcatTyped<uint8_t>(inputs, output, axis);
+            return executeConcat<uint8_t>(inputs, output, axis);
         default:
             return OperatorExecuteResult::UNSUPPORTED_OPERATION;
         }

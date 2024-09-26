@@ -15,6 +15,9 @@
 #include "parser/npy_parser.hpp"
 #include "operator/operator_registry.hpp"
 
+#include "tensor/tensor_utils.hpp"
+#include "enums.hpp"
+
 Session::Session(const std::string &onnx_file_path, SessionConfig config = SessionConfig())
 {
     sessionConfig = config;
@@ -280,16 +283,16 @@ void Session::compareOutputToReference(const Node &node, const std::string &sani
         return;
     }
     Tensor expected_tensor = NpyParser::load(reference_path);
-    TensorUtils::TensorCompareResult is_equal = TensorUtils::areTensorsEqual(output_tensor, expected_tensor);
-    if (is_equal == TensorUtils::TensorCompareResult::EQUAL)
+    TensorCompareResult is_equal = TensorUtils::areTensorsEqual(output_tensor, expected_tensor);
+    if (is_equal == TensorCompareResult::EQUAL)
     {
-        std::cout << "Output tensor " << TensorCompareResultToString(is_equal) << ":" << sanitized_output_name << std::endl;
+        std::cout << "Output tensor " << TensorUtils::TensorCompareResultToString(is_equal) << ":" << sanitized_output_name << std::endl;
         return;
     }
     else
     {
         std::cerr << "Mismatch at Node: " << node.getName() << std::endl;
-        std::cerr << "Output tensor " << TensorCompareResultToString(is_equal) << ":" << sanitized_output_name << std::endl;
+        std::cerr << "Output tensor " << TensorUtils::TensorCompareResultToString(is_equal) << ":" << sanitized_output_name << std::endl;
         std::cerr << "Expected tensor: " << std::endl;
         std::cerr << expected_tensor.toString() << std::endl;
         std::cerr << "Actual tensor: " << std::endl;

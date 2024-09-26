@@ -83,12 +83,12 @@ namespace CPU_OP
     }
 
     template <typename T>
-    OperatorExecuteResult executeTyped(const Tensor &input_tensor, Tensor *output_tensor,
-                                       const std::unordered_map<std::string, Node::AttributeValue> &attributes,
-                                       const std::vector<float> &scales, const std::vector<int64_t> &sizes,
-                                       const std::string &mode, const std::string &coordinate_transformation_mode,
-                                       const std::string &nearest_mode,
-                                       bool has_scales, bool has_sizes)
+    OperatorExecuteResult executeResize(const Tensor &input_tensor, Tensor *output_tensor,
+                                        const std::unordered_map<std::string, Node::AttributeValue> &attributes,
+                                        const std::vector<float> &scales, const std::vector<int64_t> &sizes,
+                                        const std::string &mode, const std::string &coordinate_transformation_mode,
+                                        const std::string &nearest_mode,
+                                        bool has_scales, bool has_sizes)
     {
         const T *input_data = input_tensor.data<T>();
         std::vector<size_t> input_shape = input_tensor.getDims();
@@ -100,7 +100,6 @@ namespace CPU_OP
         if (has_sizes)
         {
             output_shape = std::vector<size_t>(sizes.begin(), sizes.end());
-            // Compute scales based on sizes and input_shape
             adjusted_scales.resize(output_shape.size());
             for (size_t i = 0; i < output_shape.size(); ++i)
             {
@@ -126,7 +125,16 @@ namespace CPU_OP
             num_output_elements *= output_shape[i];
         }
 
-        T *output_data = new T[num_output_elements];
+        // Ensure the output tensor is properly allocated
+        output_tensor->reshape(output_shape);
+        output_tensor->setDataType(input_tensor.getDataType());
+
+        if (!output_tensor->data<T>() || output_tensor->getNumElements() != num_output_elements)
+        {
+            output_tensor->allocateBuffer(input_tensor.getDataType(), num_output_elements);
+        }
+
+        T *output_data = output_tensor->data<T>();
 
         // Compute output strides
         std::vector<size_t> output_strides = calcStrides(output_shape);
@@ -182,8 +190,6 @@ namespace CPU_OP
                 }
                 else
                 {
-                    output_tensor->setDataType(input_tensor.getDataType());
-                    output_tensor->setDataPointer<T>(output_data, output_shape);
                     return OperatorExecuteResult::SUCCESS;
                 }
             }
@@ -285,11 +291,11 @@ namespace CPU_OP
         switch (input_tensor.getDataType())
         {
         case TensorDataType::FLOAT32:
-            return executeTyped<float>(input_tensor, output_tensor, attributes, scales, sizes, mode, coordinate_transformation_mode, nearest_mode, has_scales, has_sizes);
+            return executeResize<float>(input_tensor, output_tensor, attributes, scales, sizes, mode, coordinate_transformation_mode, nearest_mode, has_scales, has_sizes);
         case TensorDataType::INT32:
-            return executeTyped<int32_t>(input_tensor, output_tensor, attributes, scales, sizes, mode, coordinate_transformation_mode, nearest_mode, has_scales, has_sizes);
+            return executeResize<int32_t>(input_tensor, output_tensor, attributes, scales, sizes, mode, coordinate_transformation_mode, nearest_mode, has_scales, has_sizes);
         case TensorDataType::INT64:
-            return executeTyped<int64_t>(input_tensor, output_tensor, attributes, scales, sizes, mode, coordinate_transformation_mode, nearest_mode, has_scales, has_sizes);
+            return executeResize<int64_t>(input_tensor, output_tensor, attributes, scales, sizes, mode, coordinate_transformation_mode, nearest_mode, has_scales, has_sizes);
         default:
             return OperatorExecuteResult::DATA_TYPE_ERROR;
         }

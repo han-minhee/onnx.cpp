@@ -19,7 +19,13 @@ OperatorExecuteResult executeElementwiseOperation(const std::vector<Tensor> &inp
                                                   Operation op)
 {
     const size_t num_elements = output->getNumElements();
-    T *output_data = new (std::nothrow) T[num_elements];
+
+    if (!output->getBuffer() || output->getNumElements() != num_elements)
+    {
+        output->allocateBuffer(output->getDataType(), num_elements);
+    }
+
+    T *output_data = output->data<T>();
     if (!output_data)
     {
         return OperatorExecuteResult::MEMORY_ALLOCATION_ERROR;
@@ -27,6 +33,7 @@ OperatorExecuteResult executeElementwiseOperation(const std::vector<Tensor> &inp
 
     std::vector<const T *> input_data_ptrs(inputs.size());
     std::vector<std::vector<size_t>> adjusted_shapes(inputs.size());
+
     for (size_t idx = 0; idx < inputs.size(); ++idx)
     {
         input_data_ptrs[idx] = inputs[idx].data<T>();
@@ -61,9 +68,6 @@ OperatorExecuteResult executeElementwiseOperation(const std::vector<Tensor> &inp
         }
         output_data[idx] = result;
     }
-
-    output->setDataType(inputs[0].getDataType());
-    output->setDataPointer<T>(output_data, output_shape);
 
     return OperatorExecuteResult::SUCCESS;
 }

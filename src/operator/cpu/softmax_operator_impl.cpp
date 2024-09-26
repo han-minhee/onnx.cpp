@@ -1,5 +1,6 @@
 #include "operator/operators.hpp"
 #include <cmath>
+
 namespace CPU_OP
 {
 
@@ -7,36 +8,32 @@ namespace CPU_OP
                                                        std::vector<Tensor *> &outputs,
                                                        const std::unordered_map<std::string, Node::AttributeValue> &attributes)
     {
-        // Check input tensor
+
         if (inputs.size() != 1)
         {
-            return OperatorExecuteResult::INPUT_TENSOR_ERROR; // Softmax requires exactly one input tensor
+            return OperatorExecuteResult::INPUT_TENSOR_ERROR;
         }
 
-        // Check output tensor
         if (outputs.size() != 1 || outputs[0] == nullptr)
         {
-            return OperatorExecuteResult::OUTPUT_TENSOR_ERROR; // Softmax requires exactly one output tensor
+            return OperatorExecuteResult::OUTPUT_TENSOR_ERROR;
         }
 
         const Tensor &input = inputs[0];
         Tensor *output = outputs[0];
 
-        // Get data type and ensure it's supported
         TensorDataType dataType = input.getDataType();
         if (dataType != TensorDataType::FLOAT32)
         {
-            return OperatorExecuteResult::UNSUPPORTED_OPERATION; // Only FLOAT32 is supported currently
+            return OperatorExecuteResult::UNSUPPORTED_OPERATION;
         }
 
-        // Get axis attribute (default is -1)
         int64_t axis = -1;
         if (attributes.count("axis"))
         {
             axis = std::get<int64_t>(attributes.at("axis"));
         }
 
-        // Adjust negative axis
         const std::vector<size_t> &input_shape = input.getDims();
         size_t rank = input_shape.size();
         if (axis < 0)
@@ -45,23 +42,26 @@ namespace CPU_OP
         }
         if (axis < 0 || static_cast<size_t>(axis) >= rank)
         {
-            return OperatorExecuteResult::ATTRIBUTE_ERROR; // Invalid axis
+            return OperatorExecuteResult::ATTRIBUTE_ERROR;
         }
 
-        // Prepare output tensor shape
         output->reshape(input_shape);
+        output->setDataType(TensorDataType::FLOAT32);
 
-        // Get input and output data pointers
-        const float *input_data = input.data<float>();
         size_t num_elements = input.getNumElements();
+        if (!output->data<float>() || output->getNumElements() != num_elements)
+        {
+            output->allocateBuffer(TensorDataType::FLOAT32, num_elements);
+        }
 
-        float *output_data = new (std::nothrow) float[num_elements];
+        const float *input_data = input.data<float>();
+        float *output_data = output->data<float>();
+
         if (!output_data)
         {
-            return OperatorExecuteResult::MEMORY_ALLOCATION_ERROR; // Memory allocation failed
+            return OperatorExecuteResult::MEMORY_ALLOCATION_ERROR;
         }
 
-        // Compute strides to iterate over the axis dimension
         size_t outer_size = 1;
         for (size_t i = 0; i < static_cast<size_t>(axis); ++i)
         {
@@ -76,15 +76,13 @@ namespace CPU_OP
             inner_size *= input_shape[i];
         }
 
-        // Perform softmax computation
         for (size_t outer = 0; outer < outer_size; ++outer)
         {
             for (size_t inner = 0; inner < inner_size; ++inner)
             {
-                // Compute the offset for this slice
+
                 size_t offset = outer * axis_size * inner_size + inner;
 
-                // Find the max value for numerical stability
                 float max_val = input_data[offset];
                 for (size_t i = 1; i < axis_size; ++i)
                 {
@@ -95,7 +93,6 @@ namespace CPU_OP
                     }
                 }
 
-                // Compute the sum of exp(x - max)
                 float sum = 0.0f;
                 for (size_t i = 0; i < axis_size; ++i)
                 {
@@ -104,7 +101,6 @@ namespace CPU_OP
                     sum += output_data[idx];
                 }
 
-                // Normalize
                 for (size_t i = 0; i < axis_size; ++i)
                 {
                     size_t idx = offset + i * inner_size;
@@ -112,10 +108,6 @@ namespace CPU_OP
                 }
             }
         }
-
-        // Set the output data
-        output->setDataType(TensorDataType::FLOAT32);
-        output->setDataPointer<float>(output_data, input_shape);
 
         return OperatorExecuteResult::SUCCESS;
     }

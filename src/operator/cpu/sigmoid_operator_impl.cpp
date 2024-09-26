@@ -4,12 +4,11 @@
 
 namespace CPU_OP
 {
-
     template <typename T>
-    OperatorExecuteResult executeSigmoidTyped(const std::vector<Tensor> &inputs, Tensor *output,
-                                              const std::vector<size_t> &input_strides,
-                                              const std::vector<size_t> &output_strides,
-                                              const std::vector<size_t> &output_shape)
+    OperatorExecuteResult executeSigmoid(const std::vector<Tensor> &inputs, Tensor *output,
+                                         const std::vector<size_t> &input_strides,
+                                         const std::vector<size_t> &output_strides,
+                                         const std::vector<size_t> &output_shape)
     {
         size_t num_elements = 1;
         for (size_t dim : output_shape)
@@ -17,7 +16,16 @@ namespace CPU_OP
             num_elements *= dim;
         }
 
-        T *output_data = new (std::nothrow) T[num_elements];
+        // Ensure that the output tensor is properly allocated and has the correct shape
+        output->reshape(output_shape);
+        output->setDataType(inputs[0].getDataType());
+
+        if (!output->data<T>() || output->getNumElements() != num_elements)
+        {
+            output->allocateBuffer(inputs[0].getDataType(), num_elements);
+        }
+
+        T *output_data = output->data<T>(); // Get the buffer pointer
         if (!output_data)
         {
             return OperatorExecuteResult::MEMORY_ALLOCATION_ERROR;
@@ -48,7 +56,6 @@ namespace CPU_OP
             output_data[idx] = value;
         }
 
-        output->setDataPointer<T>(output_data, output_shape);
         return OperatorExecuteResult::SUCCESS;
     }
 
@@ -93,13 +100,12 @@ namespace CPU_OP
         switch (dataType)
         {
         case TensorDataType::FLOAT32:
-            return executeSigmoidTyped<float>(inputs, output, input_strides, output_strides, output_shape);
+            return executeSigmoid<float>(inputs, output, input_strides, output_strides, output_shape);
         case TensorDataType::FLOAT64:
-            return executeSigmoidTyped<double>(inputs, output, input_strides, output_strides, output_shape);
+            return executeSigmoid<double>(inputs, output, input_strides, output_strides, output_shape);
 
         default:
             return OperatorExecuteResult::UNSUPPORTED_OPERATION;
         }
     }
-
 }
