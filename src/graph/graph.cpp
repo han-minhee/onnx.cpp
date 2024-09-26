@@ -37,13 +37,13 @@ void Graph::topologicalSort()
         const Node &node = nodes[i];
 
         // Map outputs to this node (producer)
-        for (const auto &output : node.getOutputs())
+        for (const auto &output : node.getOutputNames())
         {
             tensor_producers[output] = i;
         }
 
         // Map inputs to this node (consumer)
-        for (const auto &input : node.getInputs())
+        for (const auto &input : node.getInputNames())
         {
             tensor_consumers[input].push_back(i);
         }
@@ -55,7 +55,7 @@ void Graph::topologicalSort()
     for (size_t i = 0; i < num_nodes; ++i)
     {
         const Node &node = nodes[i];
-        for (const auto &input : node.getInputs())
+        for (const auto &input : node.getInputNames())
         {
             auto it = tensor_producers.find(input);
             if (it != tensor_producers.end())
@@ -86,7 +86,7 @@ void Graph::topologicalSort()
         const Node &node = nodes[node_index];
 
         // For each output tensor, reduce in-degree of consumer nodes
-        for (const auto &output : node.getOutputs())
+        for (const auto &output : node.getOutputNames())
         {
             auto consumers_it = tensor_consumers.find(output);
             if (consumers_it != tensor_consumers.end())
@@ -116,7 +116,7 @@ void Graph::topologicalSort()
 
     for (const auto &node : sortedNodes)
     {
-        if (node.getOpType() == "Constant")
+        if (node.getOpTypeString() == "Constant")
         {
             constantNodes.push_back(node);
         }

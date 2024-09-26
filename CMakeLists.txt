@@ -5,16 +5,39 @@ set(CMAKE_CXX_STANDARD 17)
 find_package(Protobuf REQUIRED)
 include_directories(${Protobuf_INCLUDE_DIRS})
 
-# Compile your .proto files (if needed)
-# file(GLOB PROTO_FILES "src/onnx/*.proto3")
-# protobuf_generate_cpp(PROTO_SRCS PROTO_HDRS ${PROTO_FILES})
+# Add the proto files
+file(GLOB PROTO_FILES proto/*.proto)
+set(PROTO_INCLUDE_DIRS "proto/")
 
+# Specify the output directory for the generated Protobuf files
+set(PROTO_OUTPUT_DIR ${CMAKE_BINARY_DIR}/generated_protobuf)
+
+# Ensure the output directory exists
+file(MAKE_DIRECTORY ${PROTO_OUTPUT_DIR})
+
+# Generate C++ source files from proto files into the output directory
+PROTOBUF_GENERATE_CPP(PROTO_SRCS PROTO_HDRS ${PROTO_FILES}
+    IMPORT_DIRS ${PROTO_INCLUDE_DIRS}
+    PROTOC_OUT_DIR ${PROTO_OUTPUT_DIR}
+)
+
+# Add the source files for your library
 file(GLOB_RECURSE LIB_SRC_FILES src/*.cpp src/*.cc)
-add_library(onnx_cpp_lib STATIC ${LIB_SRC_FILES} ${PROTO_SRCS})
-target_link_libraries(onnx_cpp_lib ${Protobuf_LIBRARIES})
-target_include_directories(onnx_cpp_lib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
-# GTest
+# Add the library target, including the generated proto sources
+add_library(onnx_cpp_lib STATIC ${LIB_SRC_FILES} ${PROTO_SRCS})
+
+# Link protobuf libraries
+target_link_libraries(onnx_cpp_lib ${Protobuf_LIBRARIES})
+
+# Include directories for the library, including the generated Protobuf files
+target_include_directories(onnx_cpp_lib PUBLIC 
+    ${CMAKE_CURRENT_SOURCE_DIR}/include 
+    ${PROTO_OUTPUT_DIR}  # Include the directory where the generated proto headers are located
+    ${CMAKE_CURRENT_BINARY_DIR}  # Additional include if needed
+)
+
+# GTest configuration
 enable_testing()
 include(FetchContent)
 FetchContent_Declare(
@@ -26,6 +49,7 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(googletest)
 include_directories(${gtest_SOURCE_DIR}/include ${gtest_SOURCE_DIR})
 
+# Locate the test files
 file(GLOB TEST_SOURCES "${PROJECT_SOURCE_DIR}/tests/*.cpp")
 foreach(TEST_SOURCE ${TEST_SOURCES})
     get_filename_component(TEST_NAME ${TEST_SOURCE} NAME_WE)

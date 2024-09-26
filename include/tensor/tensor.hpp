@@ -10,16 +10,9 @@
 #include <memory>
 #include <vector>
 
-enum class TensorDataType
-{
-    UNDEFINED,
-    FLOAT32,
-    FLOAT64,
-    INT32,
-    INT64,
-    INT8,
-    UINT8,
-};
+#include "device/device.hpp"
+#include "tensor/buffer.hpp"
+#include "enums.hpp"
 
 class Tensor
 {

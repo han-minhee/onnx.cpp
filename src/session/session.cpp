@@ -2,7 +2,7 @@
 #include <iostream>
 #include <fstream>
 
-#include "onnx/onnx.proto3.pb.h"
+#include "onnx.pb.h"
 
 #include "session/session.hpp"
 #include "operator/operator.hpp"
@@ -13,9 +13,12 @@
 #include "graph/node.hpp"
 #include "session/session.hpp"
 #include "parser/npy_parser.hpp"
+#include "operator/operator_registry.hpp"
 
-Session::Session(const std::string &onnx_file_path)
+Session::Session(const std::string &onnx_file_path, SessionConfig config = SessionConfig())
 {
+    sessionConfig = config;
+
     onnx::ModelProto model;
     std::ifstream input(onnx_file_path, std::ios::in | std::ios::binary);
     if (!input)
@@ -112,7 +115,6 @@ std::unordered_map<std::string, Tensor> Session::run(const std::unordered_map<st
     const auto &nodes = graph.getNodes();
     for (const auto &node : nodes)
     {
-
         executeNode(node);
     }
     std::unordered_map<std::string, Tensor> outputs;
@@ -135,10 +137,10 @@ void Session::prepareExecution(const std::unordered_map<std::string, Tensor> &in
 }
 void Session::executeNode(const Node &node)
 {
-
-    std::unique_ptr<Operator> op = OperatorFactory::createOperator(node.getOpType());
+    // std::unique_ptr<Operator> op = OperatorFactory::createOperator(node.getOpTypeString());
+    const OperatorRegistry::OperatorFunctions *op = OperatorRegistry::getOperatorFunctions(node.getOpType());
     std::vector<Tensor> input_tensors;
-    for (const auto &input_name : node.getInputs())
+    for (const auto &input_name : node.getInputNames())
     {
 
         if (input_name.empty())
@@ -158,9 +160,9 @@ void Session::executeNode(const Node &node)
     std::vector<TensorDataType> output_data_types = op->inferOutputDataTypes(input_tensors, node.getAttributes());
     std::vector<Tensor *> output_tensors;
 
-    for (size_t i = 0; i < node.getOutputs().size(); ++i)
+    for (size_t i = 0; i < node.getOutputNames().size(); ++i)
     {
-        const std::string &output_name = node.getOutputs()[i];
+        const std::string &output_name = node.getOutputNames()[i];
         const std::vector<size_t> &shape = output_shapes[i];
         TensorDataType dtype = output_data_types[i];
 
@@ -169,14 +171,14 @@ void Session::executeNode(const Node &node)
         output_tensors.push_back(&output_tensor);
     }
 
-    OperatorExecuteResult result = op->execute(input_tensors, output_tensors, node.getAttributes());
+    OperatorExecuteResult result = op->execute(input_tensors, output_tensors, node.getAttributes(), sessionConfig.device_type);
     if (result != OperatorExecuteResult::SUCCESS)
     {
         throw std::runtime_error("Operator execution failed for node: " + node.getName());
     }
-    for (size_t i = 0; i < node.getOutputs().size(); ++i)
+    for (size_t i = 0; i < node.getOutputNames().size(); ++i)
     {
-        const std::string &output_name = node.getOutputs()[i];
+        const std::string &output_name = node.getOutputNames()[i];
         tensorMap[output_name] = *output_tensors[i];
     }
 }
@@ -229,9 +231,9 @@ std::string sanitizeFileName(const std::string &name)
 }
 void Session::executeAndValidateNode(const Node &node)
 {
-    std::unique_ptr<Operator> op = OperatorFactory::createOperator(node.getOpType());
+    const OperatorRegistry::OperatorFunctions *op = OperatorRegistry::getOperatorFunctions(node.getOpType());
     std::vector<Tensor> input_tensors;
-    for (const auto &input_name : node.getInputs())
+    for (const auto &input_name : node.getInputNames())
     {
         if (input_name.empty())
         {
@@ -247,22 +249,22 @@ void Session::executeAndValidateNode(const Node &node)
     std::vector<std::vector<size_t>> output_shapes = op->inferOutputShapes(input_tensors, node.getAttributes());
     std::vector<TensorDataType> output_data_types = op->inferOutputDataTypes(input_tensors, node.getAttributes());
     std::vector<Tensor *> output_tensors;
-    for (size_t i = 0; i < node.getOutputs().size(); ++i)
+    for (size_t i = 0; i < node.getOutputNames().size(); ++i)
     {
-        const std::string &output_name = node.getOutputs()[i];
+        const std::string &output_name = node.getOutputNames()[i];
         const std::vector<size_t> &shape = output_shapes[i];
         TensorDataType dtype = output_data_types[i];
         Tensor &output_tensor = getOrAllocateIntermediateTensor(output_name, shape, dtype);
         output_tensors.push_back(&output_tensor);
     }
-    OperatorExecuteResult result = op->execute(input_tensors, output_tensors, node.getAttributes());
+    OperatorExecuteResult result = op->execute(input_tensors, output_tensors, node.getAttributes(), sessionConfig.device_type);
     if (result != OperatorExecuteResult::SUCCESS)
     {
         throw std::runtime_error("Operator execution failed for node: " + node.getName());
     }
-    for (size_t i = 0; i < node.getOutputs().size(); ++i)
+    for (size_t i = 0; i < node.getOutputNames().size(); ++i)
     {
-        const std::string &output_name = node.getOutputs()[i];
+        const std::string &output_name = node.getOutputNames()[i];
         tensorMap[output_name] = *output_tensors[i];
         std::string sanitized_name = sanitizeFileName(output_name);
         compareOutputToReference(node, sanitized_name, *output_tensors[i]);
