@@ -105,7 +105,7 @@ namespace CPU_OP
         // Check dimensions
         if (X_dims.size() != 4 || W_dims.size() != 4)
         {
-            return OperatorExecuteResult::SHAPE_MISMATCH_ERROR; // Conv operator supports 4D tensors
+            return OperatorExecuteResult::SHAPE_MISMATCH_ERROR; // supports 4D tensors
         }
 
         // Get attributes with defaults

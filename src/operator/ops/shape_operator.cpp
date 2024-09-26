@@ -64,12 +64,12 @@ OperatorExecuteResult ShapeOperator::execute(const std::vector<Tensor> &inputs, 
 {
     switch (deviceType)
     {
-    case (DeviceType::CPU):
-        CPU_OP::ShapeOperatorImpl::execute(inputs, outputs, attributes);
+    case DeviceType::CPU:
+        return CPU_OP::ShapeOperatorImpl::execute(inputs, outputs, attributes);
 
 #ifdef USE_HIP
-    case (DeviceType::HIP):
-        HIP_OP::ShapeOperatorImpl::execute(inputs, outputs, attributes);
+    case DeviceType::HIP:
+        return HIP_OP::ShapeOperatorImpl::execute(inputs, outputs, attributes);
 
 #endif
     default:

@@ -5,7 +5,6 @@
 
 namespace CPU_OP
 {
-
     template <typename T>
     float compute_x_original(float x_resized, float scale, const std::string &coordinate_transformation_mode,
                              size_t input_size, size_t output_size)

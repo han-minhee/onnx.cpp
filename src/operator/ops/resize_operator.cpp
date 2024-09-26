@@ -3,7 +3,6 @@
 #include <algorithm>
 #include <cmath>
 
-// implement inferOutputShapes and inferOutputDataTypes
 std::vector<std::vector<size_t>> ResizeOperator::inferOutputShapes(const std::vector<Tensor> &inputs,
                                                                    const std::unordered_map<std::string, Node::AttributeValue> &attributes)
 {
@@ -23,7 +22,6 @@ std::vector<std::vector<size_t>> ResizeOperator::inferOutputShapes(const std::ve
 
     if (inputs.size() >= 3)
     {
-        // Extract scales tensor
         const Tensor &scales_tensor = inputs[2];
         if (scales_tensor.getDataType() != TensorDataType::FLOAT32)
         {
@@ -36,8 +34,8 @@ std::vector<std::vector<size_t>> ResizeOperator::inferOutputShapes(const std::ve
 
     if (inputs.size() == 4)
     {
-        // Extract sizes tensor
         const Tensor &sizes_tensor = inputs[3];
+
         if (sizes_tensor.getDataType() != TensorDataType::INT64)
         {
             throw std::invalid_argument("Sizes tensor must be of INT64 data type.");
@@ -75,8 +73,6 @@ std::vector<TensorDataType> ResizeOperator::inferOutputDataTypes(const std::vect
     {
         throw std::invalid_argument("No input tensors provided.");
     }
-
-    // The output data type is the same as the input data type
     return {inputs[0].getDataType()};
 }
 
@@ -85,12 +81,12 @@ OperatorExecuteResult ResizeOperator::execute(const std::vector<Tensor> &inputs,
 {
     switch (deviceType)
     {
-    case (DeviceType::CPU):
-        CPU_OP::ResizeOperatorImpl::execute(inputs, outputs, attributes);
+    case DeviceType::CPU:
+        return CPU_OP::ResizeOperatorImpl::execute(inputs, outputs, attributes);
 
 #ifdef USE_HIP
-    case (DeviceType::HIP):
-        HIP_OP::ResizeOperatorImpl::execute(inputs, outputs, attributes);
+    case DeviceType::HIP:
+        return HIP_OP::ResizeOperatorImpl::execute(inputs, outputs, attributes);
 
 #endif
     default:

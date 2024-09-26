@@ -21,8 +21,6 @@ OperatorExecuteResult AddOperator::execute(const std::vector<Tensor> &inputs, st
                                            const std::unordered_map<std::string, Node::AttributeValue> &attributes,
                                            DeviceType deviceType)
 {
-    std::cout << "AddOperator::execute" << std::endl;
-    std::cout << "DeviceType: " << DeviceUtils::DeviceTypeToString(deviceType) << std::endl;
     switch (deviceType)
     {
     case DeviceType::CPU:
