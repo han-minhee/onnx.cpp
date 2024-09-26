@@ -1,6 +1,7 @@
 #include <iostream>
 #include <type_traits>
 
+#include "device/device.hpp"
 #include "operator/operators.hpp"
 #include "operator/cpu/elementwise_operator.hpp"
 
@@ -20,6 +21,8 @@ OperatorExecuteResult AddOperator::execute(const std::vector<Tensor> &inputs, st
                                            const std::unordered_map<std::string, Node::AttributeValue> &attributes,
                                            DeviceType deviceType)
 {
+    std::cout << "AddOperator::execute" << std::endl;
+    std::cout << "DeviceType: " << DeviceUtils::DeviceTypeToString(deviceType) << std::endl;
     switch (deviceType)
     {
     case DeviceType::CPU:

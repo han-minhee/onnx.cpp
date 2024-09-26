@@ -9,7 +9,6 @@
 #include "tensor/tensor.hpp"
 #include "enums.hpp"
 
-class Operator;
 class Node
 {
 public:
@@ -21,7 +20,8 @@ public:
     void addAttribute(const std::string &key, const AttributeValue &value);
 
     const std::string &getName() const;
-    const std::string &getOpType() const;
+    const std::string &getOpTypeString() const;
+    const OperatorType getOpType() const;
     const std::vector<std::string> &getInputNames() const;
     const std::vector<std::string> &getOutputNames() const;
     const std::unordered_map<std::string, AttributeValue> &getAttributes() const;
@@ -37,7 +37,6 @@ private:
     std::string name;
     std::string op_type;
 
-    Operator *op;
     std::vector<std::string> inputNames;
     std::vector<std::string> outputNames;
     std::unordered_map<std::string, AttributeValue> attributes;

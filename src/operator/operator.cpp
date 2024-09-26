@@ -62,88 +62,6 @@ std::vector<size_t> compute_broadcast_strides(const std::vector<size_t> &input_s
     return strides;
 }
 
-/// FIXME: Don't use switch-case for operator creation
-///        Use a map of operator type to operator class
-std::unique_ptr<Operator> OperatorFactory::createOperator(const std::string &op_type)
-{
-    if (op_type == "Add")
-    {
-        return std::make_unique<AddOperator>();
-    }
-    else if (op_type == "Sub")
-    {
-        return std::make_unique<SubOperator>();
-    }
-    else if (op_type == "Mul")
-    {
-        return std::make_unique<MulOperator>();
-    }
-    else if (op_type == "Div")
-    {
-        return std::make_unique<DivOperator>();
-    }
-    else if (op_type == "MatMul")
-    {
-        return std::make_unique<MatMulOperator>();
-    }
-    else if (op_type == "Conv")
-    {
-        return std::make_unique<ConvOperator>();
-    }
-    else if (op_type == "Sigmoid")
-    {
-        return std::make_unique<SigmoidOperator>();
-    }
-    else if (op_type == "Reshape")
-    {
-        return std::make_unique<ReshapeOperator>();
-    }
-    else if (op_type == "Constant")
-    {
-        return std::make_unique<ConstantOperator>();
-    }
-    else if (op_type == "Split")
-    {
-        return std::make_unique<SplitOperator>();
-    }
-    else if (op_type == "Concat")
-    {
-        return std::make_unique<ConcatOperator>();
-    }
-    else if (op_type == "Gather")
-    {
-        return std::make_unique<GatherOperator>();
-    }
-    else if (op_type == "Shape")
-    {
-        return std::make_unique<ShapeOperator>();
-    }
-    else if (op_type == "Softmax")
-    {
-        return std::make_unique<SoftmaxOperator>();
-    }
-    else if (op_type == "Transpose")
-    {
-        return std::make_unique<TransposeOperator>();
-    }
-    else if (op_type == "Slice")
-    {
-        return std::make_unique<SliceOperator>();
-    }
-    else if (op_type == "Resize")
-    {
-        return std::make_unique<ResizeOperator>();
-    }
-    else if (op_type == "MaxPool")
-    {
-        return std::make_unique<MaxPoolOperator>();
-    }
-    else
-    {
-        throw std::runtime_error("Unsupported operator type: " + op_type);
-    }
-}
-
 namespace OperatorUtils
 {
     std::string OperatorExecuteResultToString(OperatorExecuteResult result)
@@ -170,6 +88,8 @@ namespace OperatorUtils
             return "UNSUPPORTED_OPERATION";
         case OperatorExecuteResult::MEMORY_ALLOCATION_ERROR:
             return "MEMORY_ALLOCATION_ERROR";
+        case OperatorExecuteResult::DEVICE_UNSUPPORTED:
+            return "DEVICE_UNSUPPORTED";
         case OperatorExecuteResult::UNKNOWN_ERROR:
             return "UNKNOWN_ERROR";
 
@@ -177,4 +97,74 @@ namespace OperatorUtils
             return "UNKNOWN";
         }
     }
+
+#define OPERATOR_TYPE_TO_STRING(type) \
+    case OperatorType::type:          \
+        return #type;
+
+    std::string OperatorTypeToString(OperatorType type)
+    {
+        switch (type)
+        {
+            OPERATOR_TYPE_TO_STRING(Add)
+            OPERATOR_TYPE_TO_STRING(Conv)
+            OPERATOR_TYPE_TO_STRING(Constant)
+            OPERATOR_TYPE_TO_STRING(Sub)
+            OPERATOR_TYPE_TO_STRING(Reshape)
+            OPERATOR_TYPE_TO_STRING(Split)
+            OPERATOR_TYPE_TO_STRING(Concat)
+            OPERATOR_TYPE_TO_STRING(MatMul)
+            OPERATOR_TYPE_TO_STRING(Div)
+            OPERATOR_TYPE_TO_STRING(Mul)
+            OPERATOR_TYPE_TO_STRING(Sigmoid)
+            OPERATOR_TYPE_TO_STRING(Slice)
+            OPERATOR_TYPE_TO_STRING(Gather)
+            OPERATOR_TYPE_TO_STRING(Shape)
+            OPERATOR_TYPE_TO_STRING(Softmax)
+            OPERATOR_TYPE_TO_STRING(Transpose)
+            OPERATOR_TYPE_TO_STRING(Resize)
+            OPERATOR_TYPE_TO_STRING(MaxPool)
+        default:
+            return "Unknown";
+        }
+    }
+
+#undef OPERATOR_TYPE_TO_STRING
+#define OPERATOR_TYPE_FROM_STRING(baseName) \
+    if (operatorName == #baseName)          \
+    {                                       \
+        return OperatorType::baseName;      \
+    }
+
+    OperatorType StringToOperatorType(const std::string &operatorName)
+    {
+        OPERATOR_TYPE_FROM_STRING(Add)
+        OPERATOR_TYPE_FROM_STRING(Conv)
+        OPERATOR_TYPE_FROM_STRING(Constant)
+        OPERATOR_TYPE_FROM_STRING(Sub)
+        OPERATOR_TYPE_FROM_STRING(Reshape)
+        OPERATOR_TYPE_FROM_STRING(Split)
+        OPERATOR_TYPE_FROM_STRING(Concat)
+        OPERATOR_TYPE_FROM_STRING(MatMul)
+        OPERATOR_TYPE_FROM_STRING(Div)
+        OPERATOR_TYPE_FROM_STRING(Mul)
+        OPERATOR_TYPE_FROM_STRING(Sigmoid)
+        OPERATOR_TYPE_FROM_STRING(Slice)
+        OPERATOR_TYPE_FROM_STRING(Gather)
+        OPERATOR_TYPE_FROM_STRING(Shape)
+        OPERATOR_TYPE_FROM_STRING(Softmax)
+        OPERATOR_TYPE_FROM_STRING(Transpose)
+        OPERATOR_TYPE_FROM_STRING(Resize)
+        OPERATOR_TYPE_FROM_STRING(MaxPool)
+
+        if (operatorName == "Unknown")
+        {
+            return OperatorType::Unknown;
+        }
+
+        throw std::runtime_error("Unsupported operator type: " + operatorName);
+    }
+
+#undef OPERATOR_TYPE_TO_STRING
+
 }

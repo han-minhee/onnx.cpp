@@ -13,6 +13,7 @@
 #include "graph/node.hpp"
 #include "session/session.hpp"
 #include "parser/npy_parser.hpp"
+#include "operator/operator_registry.hpp"
 
 Session::Session(const std::string &onnx_file_path, SessionConfig config = SessionConfig())
 {
@@ -136,7 +137,8 @@ void Session::prepareExecution(const std::unordered_map<std::string, Tensor> &in
 }
 void Session::executeNode(const Node &node)
 {
-    std::unique_ptr<Operator> op = OperatorFactory::createOperator(node.getOpType());
+    // std::unique_ptr<Operator> op = OperatorFactory::createOperator(node.getOpTypeString());
+    const OperatorRegistry::OperatorFunctions *op = OperatorRegistry::getOperatorFunctions(node.getOpType());
     std::vector<Tensor> input_tensors;
     for (const auto &input_name : node.getInputNames())
     {
@@ -229,7 +231,7 @@ std::string sanitizeFileName(const std::string &name)
 }
 void Session::executeAndValidateNode(const Node &node)
 {
-    std::unique_ptr<Operator> op = OperatorFactory::createOperator(node.getOpType());
+    const OperatorRegistry::OperatorFunctions *op = OperatorRegistry::getOperatorFunctions(node.getOpType());
     std::vector<Tensor> input_tensors;
     for (const auto &input_name : node.getInputNames())
     {
@@ -255,7 +257,7 @@ void Session::executeAndValidateNode(const Node &node)
         Tensor &output_tensor = getOrAllocateIntermediateTensor(output_name, shape, dtype);
         output_tensors.push_back(&output_tensor);
     }
-    OperatorExecuteResult result = op->execute(input_tensors, output_tensors, node.getAttributes());
+    OperatorExecuteResult result = op->execute(input_tensors, output_tensors, node.getAttributes(), sessionConfig.device_type);
     if (result != OperatorExecuteResult::SUCCESS)
     {
         throw std::runtime_error("Operator execution failed for node: " + node.getName());

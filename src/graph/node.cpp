@@ -1,4 +1,5 @@
 #include "graph/node.hpp"
+#include "operator/operator.hpp"
 #include <sstream>
 
 Node::Node(const std::string &name, const std::string &op_type)
@@ -39,9 +40,14 @@ const std::string &Node::getName() const
     return name;
 }
 
-const std::string &Node::getOpType() const
+const std::string &Node::getOpTypeString() const
 {
     return op_type;
+}
+
+const OperatorType Node::getOpType() const
+{
+    return OperatorUtils::StringToOperatorType(op_type);
 }
 
 const std::vector<std::string> &Node::getInputNames() const

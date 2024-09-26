@@ -40,7 +40,9 @@ enum class OperatorType
     Softmax,
     Transpose,
     Resize,
-    MaxPool
+    MaxPool,
+
+    Unknown
 };
 
 enum class OperatorExecuteResult

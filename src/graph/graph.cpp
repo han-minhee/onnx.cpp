@@ -116,7 +116,7 @@ void Graph::topologicalSort()
 
     for (const auto &node : sortedNodes)
     {
-        if (node.getOpType() == "Constant")
+        if (node.getOpTypeString() == "Constant")
         {
             constantNodes.push_back(node);
         }

@@ -1,7 +1,10 @@
 #ifndef DEVICE_HPP
 #define DEVICE_HPP
 
+#include <string>
+
 #include "enums.hpp"
+
 namespace DeviceUtils
 {
     std::string DeviceTypeToString(DeviceType type);
