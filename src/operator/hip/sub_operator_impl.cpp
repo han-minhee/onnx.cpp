@@ -1,7 +1,7 @@
 #ifdef USE_HIP
 #include <hip/hip_runtime_api.h>
 #include "operator/operators.hpp"
-#include "operator/cpu/elementwise_operator.hpp"
+#include "operator/elementwise_operator.hpp"
 
 namespace HIP_OP
 {

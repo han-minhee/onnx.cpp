@@ -2,7 +2,7 @@
 #include <type_traits>
 
 #include "operator/operators.hpp"
-#include "operator/cpu/elementwise_operator.hpp"
+#include "operator/elementwise_operator.hpp"
 
 std::vector<std::vector<size_t>> SubOperator::inferOutputShapes(const std::vector<Tensor> &inputs,
                                                                 const std::unordered_map<std::string, Node::AttributeValue> &attributes)

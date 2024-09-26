@@ -12,7 +12,7 @@ public:
 
     int getDeviceId() const { return device_id; }
     hipStream_t getStream() const { return stream; }
-    430 void setDeviceId(int id);
+    void setDeviceId(int id);
     void setStream(hipStream_t s);
     void synchronize() const;
 

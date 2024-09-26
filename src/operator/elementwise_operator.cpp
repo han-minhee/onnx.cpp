@@ -1,4 +1,4 @@
-#include "operator/cpu/elementwise_operator.hpp"
+#include "operator/elementwise_operator.hpp"
 
 size_t computeOffset(const std::vector<size_t> &indices,
                      const std::vector<size_t> &strides,
@@ -38,3 +38,4 @@ std::vector<TensorDataType> inferElementwiseOutputDataTypes(const std::vector<Te
     }
     return {dataType};
 }
+

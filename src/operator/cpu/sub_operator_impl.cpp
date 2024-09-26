@@ -1,5 +1,5 @@
 #include "operator/operators.hpp"
-#include "operator/cpu/elementwise_operator.hpp"
+#include "operator/elementwise_operator.hpp"
 
 namespace CPU_OP
 {
