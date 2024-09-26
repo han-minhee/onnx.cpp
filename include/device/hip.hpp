@@ -8,4 +8,4 @@ class HipDevice : public Device
 };
 
 #endif // HIP_HPP
-#endif // USE_SYCL
+#endif // USE_HIP
