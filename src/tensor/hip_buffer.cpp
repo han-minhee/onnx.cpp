@@ -23,7 +23,7 @@ HipBuffer::HipBuffer(TensorDataType data_type, size_t num_elements, HipDevice *d
 
 HipBuffer::~HipBuffer()
 {
-    hipErrorCheck(hipFree(data_));
+    // hipErrorCheck(hipFree(data_));
 }
 
 Device *HipBuffer::getDevice() const

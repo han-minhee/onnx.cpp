@@ -294,3 +294,13 @@ Tensor create_tensor(TensorDataType dtype, const std::vector<size_t> &dims, cons
 
     return tensor;
 }
+
+void Tensor::to(Device *device)
+{
+    if (device->getType() != device_->getType())
+    {
+        Buffer *new_buffer = buffer_->to(device);
+        buffer_ = std::shared_ptr<Buffer>(new_buffer);
+        device_ = device;
+    }
+}

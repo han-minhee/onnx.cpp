@@ -42,7 +42,7 @@ public:
     size_t getLinearIndex(const std::vector<int64_t> &indices) const;
     std::string toString() const;
 
-    void setDevice(Device *device);
+    void to(Device *device);
     Device *getDevice();
 
 private:

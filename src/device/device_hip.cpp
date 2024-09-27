@@ -25,6 +25,12 @@ void HipDevice::setStream(hipStream_t s)
     stream = s;
 }
 
+void HipDevice::synchronize() const
+{
+    hipErrorCheck(hipStreamSynchronize(stream));
+    // hipErrorCheck(hipDeviceSynchronize());
+}
+
 int HipDevice::getDeviceIndex() const 
 {
     return device_id;

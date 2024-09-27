@@ -17,7 +17,7 @@ void PrintTo(OperatorExecuteResult result, std::ostream *os)
 void run_and_check_operator(const OperatorRegistry::OperatorFunctions *op,
                             const std::vector<Tensor> &inputs,
                             std::vector<Tensor *> outputs,
-                            const std::vector<Tensor> &expected,
+                            std::vector<Tensor> &expected,
                             std::unordered_map<std::string, Node::AttributeValue> attributes,
                             OperatorExecuteResult expected_execute_result,
                             HipDevice *device)
@@ -36,6 +36,13 @@ void run_and_check_operator(const OperatorRegistry::OperatorFunctions *op,
     {
         ASSERT_EQ(outputs[i]->getDims(), expected[i].getDims());
         ASSERT_EQ(outputs[i]->getDataType(), expected[i].getDataType());
+
+        std::cout << inputs[i].toString() << std::endl;
+        std::cout << outputs[i]->toString() << std::endl;
+
+        // move tensors to host
+        outputs[i]->to(new CpuDevice());
+        expected[i].to(new CpuDevice());
 
         switch (outputs[i]->getDataType())
         {
@@ -78,10 +85,9 @@ void run_and_check_operator(const OperatorRegistry::OperatorFunctions *op,
     }
 }
 
-#define RUN_TEST_CASE(operator_type, input_tensors, expected_tensors, attributes, expectedResult, hipDevice)   \
+#define RUN_TEST_CASE(operator_type, input_tensors, expected_tensors, attributes, expectedResult, device)      \
     do                                                                                                         \
     {                                                                                                          \
-                                                                                                               \
         const OperatorRegistry::OperatorFunctions *op = OperatorRegistry::getOperatorFunctions(operator_type); \
         std::vector<std::vector<size_t>> output_shapes = op->inferOutputShapes(input_tensors, attributes);     \
         std::vector<TensorDataType> output_data_types = op->inferOutputDataTypes(input_tensors, attributes);   \
@@ -89,11 +95,11 @@ void run_and_check_operator(const OperatorRegistry::OperatorFunctions *op,
         std::vector<Tensor *> outputs;                                                                         \
         for (size_t i = 0; i < output_shapes.size(); i++)                                                      \
         {                                                                                                      \
-            outputs.push_back(new Tensor(output_data_types[i], output_shapes[i]));                             \
+            outputs.push_back(new Tensor(output_data_types[i], output_shapes[i], device));                     \
         }                                                                                                      \
                                                                                                                \
         run_and_check_operator(op, input_tensors, outputs, expected_tensors, attributes,                       \
-                               expectedResult, hipDevice);                                                     \
+                               expectedResult, device);                                                        \
                                                                                                                \
         for (auto &output : outputs)                                                                           \
         {                                                                                                      \
@@ -106,15 +112,19 @@ TEST(OperaotrTestCPU, AddOperatorBasic)
 {
     HipDevice hipDevice = HipDevice(0);
 
-    Tensor t1 = create_tensor(TensorDataType::FLOAT32, {2, 2}, {1.0f, 2.0f, 3.0f, 4.0f}, &hipDevice);
-    Tensor t2 = create_tensor(TensorDataType::FLOAT32, {2, 2}, {5.0f, 6.0f, 7.0f, 8.0f}, &hipDevice);
-    Tensor expected = create_tensor(TensorDataType::FLOAT32, {2, 2}, {6.0f, 8.0f, 10.0f, 12.0f}, &hipDevice);
+    Tensor t1 = create_tensor(TensorDataType::FLOAT32, {2, 3}, {1.0f, 2.0f, 3.0f, 4.0f, 3.0f, 4.0f}, &hipDevice);
+    Tensor t2 = create_tensor(TensorDataType::FLOAT32, {2, 3}, {5.0f, 6.0f, 7.0f, 8.0f, 3.0f, 4.0f}, &hipDevice);
+    Tensor expected = create_tensor(TensorDataType::FLOAT32, {2, 3}, {6.0f, 8.0f, 10.0f, 12.0f, 6.0f, 8.0f}, &hipDevice);
     std::unordered_map<std::string, Node::AttributeValue> attributes;
 
     std::vector<Tensor> inputs = {t1, t2};
     std::vector<Tensor> expected_tensors = {expected};
 
     RUN_TEST_CASE(OperatorType::Add, inputs, expected_tensors, attributes, OperatorExecuteResult::SUCCESS, &hipDevice);
+
+    hipDevice.synchronize();
+
+    std::cout << "AddOperatorBasic test passed" << std::endl;
 }
 
 // TEST(OperaotrTestCPU, AddOperatorBroadcastScalar)

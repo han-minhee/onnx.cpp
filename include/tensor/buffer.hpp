@@ -48,7 +48,7 @@ public:
 class CpuBuffer : public Buffer
 {
 public:
-    CpuBuffer(TensorDataType data_type, size_t num_elements, CpuDevice *device) ;
+    CpuBuffer(TensorDataType data_type, size_t num_elements, CpuDevice *device);
     ~CpuBuffer() override;
 
     Device *getDevice() const override;

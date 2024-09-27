@@ -51,7 +51,7 @@ Session::Session(const std::string &onnx_file_path, SessionConfig config = Sessi
     {
         const onnx::TensorProto &onnx_initializer = onnx_graph.initializer(i);
         Tensor tensor = parseONNXTensor(onnx_initializer, hostDevice); // CPU device is used for parsing now
-        tensor.setDevice(sessionConfig.device);                        // move the tensor to the selected device
+        tensor.to(sessionConfig.device);                        // move the tensor to the selected device
         tensorMap[onnx_initializer.name()] = tensor;
     }
     for (int i = 0; i < onnx_graph.node_size(); ++i)
@@ -74,7 +74,7 @@ Session::Session(const std::string &onnx_file_path, SessionConfig config = Sessi
             case onnx::AttributeProto_AttributeType_TENSOR:
             {
                 Tensor attribute_tensor = parseONNXTensor(attr.t(), hostDevice); // CPU device is used for parsing now
-                attribute_tensor.setDevice(sessionConfig.device);               // move the tensor to the selected device
+                attribute_tensor.to(sessionConfig.device);               // move the tensor to the selected device
                 node.addAttribute(attr.name(), attribute_tensor);
                 break;
             }
