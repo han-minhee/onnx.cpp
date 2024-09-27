@@ -77,8 +77,10 @@ std::vector<TensorDataType> ResizeOperator::inferOutputDataTypes(const std::vect
 }
 
 OperatorExecuteResult ResizeOperator::execute(const std::vector<Tensor> &inputs, std::vector<Tensor *> &outputs,
-                                              const std::unordered_map<std::string, Node::AttributeValue> &attributes, DeviceType deviceType)
+                                              const std::unordered_map<std::string, Node::AttributeValue> &attributes, Device &device)
 {
+    DeviceType deviceType = device.getType();
+
     switch (deviceType)
     {
     case DeviceType::CPU:
@@ -86,7 +88,7 @@ OperatorExecuteResult ResizeOperator::execute(const std::vector<Tensor> &inputs,
 
 #ifdef USE_HIP
     case DeviceType::HIP:
-        return HIP_OP::ResizeOperatorImpl::execute(inputs, outputs, attributes);
+        return HIP_OP::ResizeOperatorImpl::execute(inputs, outputs, attributes, device);
 
 #endif
     default:

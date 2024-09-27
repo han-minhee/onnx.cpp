@@ -19,7 +19,6 @@ public:
 private:
     int device_id;
     hipStream_t stream;
-    
 };
 
 #endif // HIP_HPP

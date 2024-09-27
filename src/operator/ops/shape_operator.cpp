@@ -45,11 +45,10 @@ std::vector<std::vector<size_t>> ShapeOperator::inferOutputShapes(const std::vec
 
     // The expected output shape is a single-dimensional tensor with 'length' equal to the number of dimensions between start and end
     size_t output_length = end - start;
-    
+
     // The output should be a vector with a single value: {output_length}
     return {{output_length}};
 }
-
 
 std::vector<TensorDataType> ShapeOperator::inferOutputDataTypes(const std::vector<Tensor> &inputs,
                                                                 const std::unordered_map<std::string, Node::AttributeValue> &attributes)
@@ -58,8 +57,10 @@ std::vector<TensorDataType> ShapeOperator::inferOutputDataTypes(const std::vecto
 }
 
 OperatorExecuteResult ShapeOperator::execute(const std::vector<Tensor> &inputs, std::vector<Tensor *> &outputs,
-                                             const std::unordered_map<std::string, Node::AttributeValue> &attributes, DeviceType deviceType)
+                                             const std::unordered_map<std::string, Node::AttributeValue> &attributes, Device &device)
 {
+    DeviceType deviceType = device.getType();
+
     switch (deviceType)
     {
     case DeviceType::CPU:
@@ -67,7 +68,7 @@ OperatorExecuteResult ShapeOperator::execute(const std::vector<Tensor> &inputs, 
 
 #ifdef USE_HIP
     case DeviceType::HIP:
-        return HIP_OP::ShapeOperatorImpl::execute(inputs, outputs, attributes);
+        return HIP_OP::ShapeOperatorImpl::execute(inputs, outputs, attributes, device);
 
 #endif
     default:

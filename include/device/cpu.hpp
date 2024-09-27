@@ -14,4 +14,14 @@ public:
         // std::ifstream cpuinfo("/proc/cpuinfo");
         return "CPU";
     }
+
+    int getDeviceIndex() override
+    {
+        return 0;
+    }
+
+    void setDeviceIndex(int index) override
+    {
+        // Do nothing
+    }
 };

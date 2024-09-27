@@ -23,49 +23,50 @@ namespace HIP_OP
     {
         size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
 
-        if (idx < num_elements)
+        if (idx >= num_elements)
         {
-
-            size_t indices[MAX_DIMS] = {0};
-            size_t remainder = idx;
-            for (int dim = 0; dim < num_dims; ++dim)
-            {
-                size_t stride = output_strides[dim];
-                indices[dim] = remainder / stride;
-                remainder %= stride;
-            }
-
-            T result = static_cast<T>(0);
-            for (size_t input_idx = 0; input_idx < num_inputs; ++input_idx)
-            {
-                const T *input_data = input_data_ptrs[input_idx];
-                const size_t *input_stride = &input_strides[input_idx * MAX_DIMS];
-                const size_t *input_shape = &input_shapes[input_idx * MAX_DIMS];
-
-                size_t input_offset = 0;
-                for (size_t dim = 0; dim < num_dims; ++dim)
-                {
-                    size_t dim_index = indices[dim];
-                    if (input_shape[dim] == 1)
-                    {
-                        dim_index = 0;
-                    }
-                    input_offset += dim_index * input_stride[dim];
-                }
-
-                T operand = input_data[input_offset];
-                if (input_idx == 0)
-                {
-                    result = operand;
-                }
-                else
-                {
-                    result += operand;
-                }
-            }
-
-            output_data[idx] = result;
+            return;
         }
+
+        size_t indices[MAX_DIMS] = {0};
+        size_t remainder = idx;
+        for (int dim = 0; dim < num_dims; ++dim)
+        {
+            size_t stride = output_strides[dim];
+            indices[dim] = remainder / stride;
+            remainder %= stride;
+        }
+
+        T result = static_cast<T>(0);
+        for (size_t input_idx = 0; input_idx < num_inputs; ++input_idx)
+        {
+            const T *input_data = input_data_ptrs[input_idx];
+            const size_t *input_stride = &input_strides[input_idx * MAX_DIMS];
+            const size_t *input_shape = &input_shapes[input_idx * MAX_DIMS];
+
+            size_t input_offset = 0;
+            for (size_t dim = 0; dim < num_dims; ++dim)
+            {
+                size_t dim_index = indices[dim];
+                if (input_shape[dim] == 1)
+                {
+                    dim_index = 0;
+                }
+                input_offset += dim_index * input_stride[dim];
+            }
+
+            T operand = input_data[input_offset];
+            if (input_idx == 0)
+            {
+                result = operand;
+            }
+            else
+            {
+                result += operand;
+            }
+        }
+
+        output_data[idx] = result;
     }
 
     template <typename T>

@@ -9,11 +9,12 @@
 #include "graph/graph.hpp"
 #include "tensor/tensor.hpp"
 #include "device/device.hpp"
+#include "device/cpu.hpp"
 #include "enums.hpp"
 
 struct SessionConfig
 {
-    DeviceType device_type = DeviceType::CPU;
+    Device &device = new CpuDevice();
     bool enable_optimizations = false;
     std::unordered_map<std::string, std::string> custom_args = {};
 };
@@ -27,8 +28,11 @@ public:
     Tensor &getOrAllocateIntermediateTensor(const std::string &name, const std::vector<size_t> &dims, TensorDataType dtype);
 
     // currently bool is used as a return type to indicate success or failure
-    bool selectDevice(DeviceType type, size_t deviceIndex = 0);
     bool addDevice(const Device &device);
+    bool selectDevice(Device &device);
+    bool selectDeviceByName(const std::string &name, size_t deviceIndex = 0);
+    bool selectDeviceByType(DeviceType type, size_t deviceIndex = 0);
+
     Device &getDeviceByName(const std::string &name, size_t deviceIndex = 0);
     Device &getDeviceByType(DeviceType type, size_t deviceIndex = 0);
 

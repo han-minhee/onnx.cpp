@@ -7,11 +7,19 @@
 #include <stdexcept>
 #include "enums.hpp"
 
+#include "device/device.hpp"
+#include "device/cpu.hpp"
+
+#ifdef USE_HIP
+#include "device/hip.hpp"
+#endif
+
 class Buffer
 {
 public:
     virtual ~Buffer() = default;
 
+    virtual Device &getDevice() const = 0;
     virtual DeviceType getDeviceType() const = 0;
     virtual int getDeviceId() const = 0;
 
@@ -25,8 +33,8 @@ public:
     virtual void resize(size_t num_elements) = 0;
 
     virtual BufferOperationResult toHost() = 0;
-    virtual BufferOperationResult to(DeviceType deviceType) = 0;
-    virtual BufferOperationResult offload(DeviceType deviceType) = 0;
+    virtual BufferOperationResult to(Device &device) = 0;
+    virtual BufferOperationResult offload(Device &device) = 0;
 };
 
 class CpuBuffer : public Buffer
@@ -35,6 +43,7 @@ public:
     CpuBuffer(TensorDataType data_type, size_t num_elements);
     ~CpuBuffer() override;
 
+    Device &getDevice() const override;
     DeviceType getDeviceType() const override;
     int getDeviceId() const override;
 
@@ -48,10 +57,11 @@ public:
     void resize(size_t num_elements) override;
 
     BufferOperationResult toHost() override;
-    BufferOperationResult to(DeviceType deviceType) override;
-    BufferOperationResult offload(DeviceType deviceType) override;
+    BufferOperationResult to(Device &device) override;
+    BufferOperationResult offload(Device &device) override;
 
 private:
+    CpuDevice &device_;
     void *data_;
     TensorDataType data_type_;
     size_t num_elements_;
@@ -66,6 +76,7 @@ public:
     HipBuffer(TensorDataType data_type, size_t num_elements);
     ~HipBuffer() override;
 
+    Device &getDevice() const override;
     DeviceType getDeviceType() const override;
     int getDeviceId() const override;
 
@@ -79,10 +90,11 @@ public:
     void resize(size_t num_elements) override;
 
     BufferOperationResult toHost() override;
-    BufferOperationResult to(DeviceType deviceType) override;
-    BufferOperationResult offload(DeviceType deviceType) override;
+    BufferOperationResult to(Device &device) override;
+    BufferOperationResult offload(Device &device) override;
 
 private:
+    HipDevice &device_;
     void *data_;
     TensorDataType data_type_;
     size_t num_elements_;
@@ -91,23 +103,3 @@ private:
 
 #endif // USE_HIP
 #endif // BUFFER_HPP
-
-// #ifdef USE_SYCL
-// #include <sycl/sycl.hpp>
-// class SyclBuffer : public Buffer
-// {
-// public:
-//     SyclBuffer(size_t size = 0);
-//     ~SyclBuffer() override;
-
-//     void *data() override;
-//     const void *data() const override;
-//     size_t size() const override;
-
-//     void resize(size_t newSize) override;
-
-// private:
-//     cl::sycl::buffer<uint8_t, 1> buffer;
-//     size_t bufferSize;
-// };
-// #endif // USE_SYCL

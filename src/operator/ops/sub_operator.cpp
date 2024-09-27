@@ -18,8 +18,9 @@ std::vector<TensorDataType> SubOperator::inferOutputDataTypes(const std::vector<
 
 OperatorExecuteResult SubOperator::execute(const std::vector<Tensor> &inputs, std::vector<Tensor *> &outputs,
                                            const std::unordered_map<std::string, Node::AttributeValue> &attributes,
-                                           DeviceType deviceType)
+                                           Device& device)
 {
+    DeviceType deviceType = device.getType();
     switch (deviceType)
     {
     case DeviceType::CPU:

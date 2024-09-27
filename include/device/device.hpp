@@ -17,6 +17,8 @@ public:
     virtual ~Device() {}
     virtual DeviceType getType() const;
     virtual std::string toString() const;
+    virtual int getDeviceIndex();
+    virtual void setDeviceIndex(int index);
 
 private:
 };
