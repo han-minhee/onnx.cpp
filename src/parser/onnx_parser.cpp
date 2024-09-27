@@ -31,7 +31,8 @@ TensorDataType convertONNXDataType(int onnx_data_type)
     }
 }
 
-Tensor parseONNXTensor(const onnx::TensorProto &onnx_tensor)
+/// XXX: The CPU Device should be given for this
+Tensor parseONNXTensor(const onnx::TensorProto &onnx_tensor, Device *device)
 {
     TensorDataType data_type = convertONNXDataType(onnx_tensor.data_type());
 
@@ -43,7 +44,7 @@ Tensor parseONNXTensor(const onnx::TensorProto &onnx_tensor)
     }
 
     // Create a Tensor object
-    Tensor tensor(data_type, dims);
+    Tensor tensor(data_type, dims, device);
 
     // Calculate the number of elements
     size_t num_elements = tensor.getNumElements();

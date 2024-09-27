@@ -6,6 +6,7 @@ enum class BufferOperationResult
     SUCCESS,
     FAILURE,
     DEVICE_UNSUPPORTED,
+    DEVICE_MISMATCH,
     NOT_IMPLEMENTED
 };
 

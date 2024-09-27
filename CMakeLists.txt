@@ -24,26 +24,51 @@ PROTOBUF_GENERATE_CPP(PROTO_SRCS PROTO_HDRS ${PROTO_FILES}
 # Add the source files for your library
 file(GLOB_RECURSE LIB_SRC_FILES src/*.cpp src/*.cc)
 
-# Add the library target, including the generated proto sources
-add_library(onnx_cpp_lib STATIC ${LIB_SRC_FILES} ${PROTO_SRCS})
+# Check if USEHIP flag is set
+if(USEHIP)
+    message(STATUS "USEHIP flag is set, using HIP for compilation")
+    find_package(HIP REQUIRED) # Find HIP package
+    set(CMAKE_CXX_COMPILER ${HIP_HIPCC_EXECUTABLE})
 
-# Link protobuf libraries
-target_link_libraries(onnx_cpp_lib ${Protobuf_LIBRARIES})
+    # Add HIP sources
+    file(GLOB_RECURSE HIP_SRC_FILES src/*.cpp src/*.cc)
 
-# Include directories for the library, including the generated Protobuf files
-target_include_directories(onnx_cpp_lib PUBLIC 
-    ${CMAKE_CURRENT_SOURCE_DIR}/include 
-    ${PROTO_OUTPUT_DIR}  # Include the directory where the generated proto headers are located
-    ${CMAKE_CURRENT_BINARY_DIR}  # Additional include if needed
-)
+    # Add the library target, including the generated proto sources and HIP sources
+    add_library(onnx_cpp_lib STATIC ${LIB_SRC_FILES} ${PROTO_SRCS} ${HIP_SRC_FILES})
+
+    # Link HIP libraries
+    target_link_libraries(onnx_cpp_lib ${Protobuf_LIBRARIES} hip::device)
+
+    # Include directories for HIP
+    target_include_directories(onnx_cpp_lib PUBLIC
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+        ${PROTO_OUTPUT_DIR}
+        ${CMAKE_CURRENT_BINARY_DIR}
+        ${HIP_INCLUDE_DIRS} # Include HIP headers
+    )
+
+else()
+    # Add the library target, including the generated proto sources
+    add_library(onnx_cpp_lib STATIC ${LIB_SRC_FILES} ${PROTO_SRCS})
+
+    # Link protobuf libraries
+    target_link_libraries(onnx_cpp_lib ${Protobuf_LIBRARIES})
+
+    # Include directories for the library, including the generated Protobuf files
+    target_include_directories(onnx_cpp_lib PUBLIC
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+        ${PROTO_OUTPUT_DIR}
+        ${CMAKE_CURRENT_BINARY_DIR}
+    )
+endif()
 
 # GTest configuration
 enable_testing()
 include(FetchContent)
 FetchContent_Declare(
-  googletest
-  URL https://github.com/google/googletest/releases/download/v1.15.2/googletest-1.15.2.tar.gz
-  DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+    googletest
+    URL https://github.com/google/googletest/releases/download/v1.15.2/googletest-1.15.2.tar.gz
+    DOWNLOAD_EXTRACT_TIMESTAMP TRUE
 )
 
 FetchContent_MakeAvailable(googletest)

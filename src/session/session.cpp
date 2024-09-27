@@ -20,6 +20,7 @@
 
 Session::Session(const std::string &onnx_file_path, SessionConfig config = SessionConfig())
 {
+    hostDevice = new CpuDevice();
     sessionConfig = config;
 
     onnx::ModelProto model;
@@ -49,7 +50,8 @@ Session::Session(const std::string &onnx_file_path, SessionConfig config = Sessi
     for (int i = 0; i < onnx_graph.initializer_size(); ++i)
     {
         const onnx::TensorProto &onnx_initializer = onnx_graph.initializer(i);
-        Tensor tensor = parseONNXTensor(onnx_initializer);
+        Tensor tensor = parseONNXTensor(onnx_initializer, hostDevice); // CPU device is used for parsing now
+        tensor.setDevice(sessionConfig.device);                        // move the tensor to the selected device
         tensorMap[onnx_initializer.name()] = tensor;
     }
     for (int i = 0; i < onnx_graph.node_size(); ++i)
@@ -71,7 +73,8 @@ Session::Session(const std::string &onnx_file_path, SessionConfig config = Sessi
             {
             case onnx::AttributeProto_AttributeType_TENSOR:
             {
-                Tensor attribute_tensor = parseONNXTensor(attr.t());
+                Tensor attribute_tensor = parseONNXTensor(attr.t(), hostDevice); // CPU device is used for parsing now
+                attribute_tensor.setDevice(sessionConfig.device);               // move the tensor to the selected device
                 node.addAttribute(attr.name(), attribute_tensor);
                 break;
             }
@@ -140,16 +143,13 @@ void Session::prepareExecution(const std::unordered_map<std::string, Tensor> &in
 }
 void Session::executeNode(const Node &node)
 {
-    // std::unique_ptr<Operator> op = OperatorFactory::createOperator(node.getOpTypeString());
     const OperatorRegistry::OperatorFunctions *op = OperatorRegistry::getOperatorFunctions(node.getOpType());
     std::vector<Tensor> input_tensors;
     for (const auto &input_name : node.getInputNames())
     {
-
         if (input_name.empty())
         {
-
-            input_tensors.push_back(Tensor());
+            input_tensors.push_back(Tensor(sessionConfig.device));
             continue;
         }
         if (tensorMap.find(input_name) == tensorMap.end())
@@ -174,7 +174,7 @@ void Session::executeNode(const Node &node)
         output_tensors.push_back(&output_tensor);
     }
 
-    OperatorExecuteResult result = op->execute(input_tensors, output_tensors, node.getAttributes(), sessionConfig.device_type);
+    OperatorExecuteResult result = op->execute(input_tensors, output_tensors, node.getAttributes(), sessionConfig.device);
     if (result != OperatorExecuteResult::SUCCESS)
     {
         throw std::runtime_error("Operator execution failed for node: " + node.getName());
@@ -195,7 +195,7 @@ Tensor &Session::getOrAllocateIntermediateTensor(const std::string &name, const 
     else
     {
 
-        intermediateTensorPool[name] = Tensor(dtype, dims);
+        intermediateTensorPool[name] = Tensor(dtype, dims, sessionConfig.device);
 
         return intermediateTensorPool[name];
     }
@@ -240,7 +240,7 @@ void Session::executeAndValidateNode(const Node &node)
     {
         if (input_name.empty())
         {
-            input_tensors.push_back(Tensor());
+            input_tensors.push_back(Tensor(sessionConfig.device));
             continue;
         }
         if (tensorMap.find(input_name) == tensorMap.end())
@@ -260,7 +260,7 @@ void Session::executeAndValidateNode(const Node &node)
         Tensor &output_tensor = getOrAllocateIntermediateTensor(output_name, shape, dtype);
         output_tensors.push_back(&output_tensor);
     }
-    OperatorExecuteResult result = op->execute(input_tensors, output_tensors, node.getAttributes(), sessionConfig.device_type);
+    OperatorExecuteResult result = op->execute(input_tensors, output_tensors, node.getAttributes(), sessionConfig.device);
     if (result != OperatorExecuteResult::SUCCESS)
     {
         throw std::runtime_error("Operator execution failed for node: " + node.getName());

@@ -8,29 +8,16 @@
 #include "tensor/buffer.hpp"
 #include "tensor/tensor_utils.hpp"
 
-Tensor::Tensor(DeviceType device_type, size_t device_id)
-    : data_type_(TensorDataType::UNDEFINED), num_elements_(0), buffer_(nullptr), device_type_(device_type), device_id_(device_id)
+Tensor::Tensor(Device *device)
+    : data_type_(TensorDataType::UNDEFINED), num_elements_(0), buffer_(nullptr), device_(device)
 {
 }
 
-Tensor::Tensor(TensorDataType dtype, const std::vector<size_t> &dims, DeviceType device_type, size_t device_id)
-    : data_type_(dtype), dimensions_(dims), num_elements_(calcNumElements(dims)), device_type_(device_type), device_id_(device_id)
+Tensor::Tensor(TensorDataType dtype, const std::vector<size_t> &dims, Device *device)
+    : data_type_(dtype), dimensions_(dims), num_elements_(calcNumElements(dims)), device_(device)
 {
     strides_ = calcStrides(dims);
-    switch (device_type_)
-    {
-    case DeviceType::CPU:
-        buffer_ = std::make_shared<CpuBuffer>(dtype, num_elements_);
-        break;
-#ifdef USE_HIP
-    case DeviceType::HIP:
-        buffer_ = std::make_shared<HipBuffer>(dtype, num_elements_);
-        break;
-#endif
-
-    default:
-        throw std::runtime_error("Unsupported device type");
-    }
+    buffer_ = Buffer::create(device, dtype, num_elements_);
 }
 
 size_t Tensor::calcNumElements(const std::vector<size_t> &dims)
@@ -95,8 +82,7 @@ void Tensor::reshape(const std::vector<size_t> &new_dims)
 void Tensor::setDataType(TensorDataType dtype)
 {
     data_type_ = dtype;
-    // Reallocate buffer with new data type
-    buffer_ = std::make_shared<CpuBuffer>(dtype, num_elements_);
+    buffer_ = Buffer::create(device_, dtype, num_elements_);
 }
 
 TensorDataType Tensor::getDataType() const
@@ -127,39 +113,13 @@ const T *Tensor::data() const
 template <typename T>
 void Tensor::setData(const std::vector<T> &data)
 {
-    if (TensorUtils::getDataTypeFromType<T>() != data_type_)
-    {
-        throw std::runtime_error("Incorrect data type");
-    }
-    if (data.size() != num_elements_)
-    {
-        throw std::runtime_error("Data size mismatch");
-    }
-
-    /// XXX: It should bring back the buffer to the device if it was offloaded
-    switch (device_type_)
-    {
-    case DeviceType::CPU:
-    {
-        T *buffer_data = this->data<T>();
-        std::copy(data.begin(), data.end(), buffer_data);
-        break;
-    }
-#ifdef USE_HIP
-    case DeviceType::HIP:
-    {
-        hipMemcpy(buffer_->getDataPointer(), data.data(), num_elements_ * sizeof(T), hipMemcpyHostToDevice);
-        break;
-    }
-#endif
-    default:
-        throw std::runtime_error("Unsupported device type");
-    }
+    // call setData on the buffer
+    buffer_->setData(data);
 }
 
 void Tensor::freeData()
 {
-    buffer_.reset();
+    buffer_.reset(); // is it necessary?
     num_elements_ = 0;
     dimensions_.clear();
     strides_.clear();
@@ -255,7 +215,11 @@ void Tensor::allocateBuffer(TensorDataType dtype, size_t num_elements)
 {
     if (!buffer_ || buffer_->getNumElements() != num_elements)
     {
-        buffer_ = std::make_shared<CpuBuffer>(dtype, num_elements);
+        buffer_ = Buffer::create(device_, dtype, num_elements);
+    }
+    else
+    {
+        buffer_->resize(num_elements);
     }
 }
 
@@ -274,7 +238,7 @@ INSTANTIATE_TENSOR_TEMPLATE(uint8_t)
 
 #undef INSTANTIATE_TENSOR_TEMPLATE
 
-Tensor create_tensor(TensorDataType dtype, const std::vector<size_t> &dims, const std::vector<float> &data, DeviceType device_type, size_t device_id)
+Tensor create_tensor(TensorDataType dtype, const std::vector<size_t> &dims, const std::vector<float> &data, Device *device)
 {
     size_t num_elements = std::accumulate(dims.begin(), dims.end(), 1, std::multiplies<size_t>());
 
@@ -283,7 +247,7 @@ Tensor create_tensor(TensorDataType dtype, const std::vector<size_t> &dims, cons
         throw std::invalid_argument("Data size does not match tensor dimensions.");
     }
 
-    Tensor tensor(dtype, dims, device_type, device_id);
+    Tensor tensor(dtype, dims, device);
 
     switch (dtype)
     {

@@ -2,7 +2,6 @@
 #define DEVICE_HPP
 
 #include <string>
-
 #include "enums.hpp"
 
 namespace DeviceUtils
@@ -15,10 +14,10 @@ class Device
 public:
     Device() {}
     virtual ~Device() {}
-    virtual DeviceType getType() const;
-    virtual std::string toString() const;
-    virtual int getDeviceIndex();
-    virtual void setDeviceIndex(int index);
+    virtual DeviceType getType() const = 0;
+    virtual std::string toString() const = 0;
+    virtual int getDeviceIndex() = 0;
+    virtual void setDeviceIndex(int index) = 0;
 
 private:
 };

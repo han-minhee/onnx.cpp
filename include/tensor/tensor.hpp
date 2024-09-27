@@ -11,8 +11,8 @@
 class Tensor
 {
 public:
-    Tensor(Device &device, size_t device_id = 0);
-    Tensor(TensorDataType dtype, const std::vector<size_t> &dims, Device &device, size_t device_id = 0);
+    Tensor(Device *device = new CpuDevice());
+    Tensor(TensorDataType dtype, const std::vector<size_t> &dims, Device *device = new CpuDevice());
 
     const std::vector<size_t> &getDims() const;
     const std::vector<size_t> &getStrides() const;
@@ -42,11 +42,11 @@ public:
     size_t getLinearIndex(const std::vector<int64_t> &indices) const;
     std::string toString() const;
 
-    void setDevice(Device &device);
-    Device &getDevice();
+    void setDevice(Device *device);
+    Device *getDevice();
 
 private:
-    Device &device_;
+    Device *device_;
     TensorDataType data_type_;
     std::vector<size_t> dimensions_;
     std::vector<size_t> strides_;
@@ -59,6 +59,6 @@ private:
     size_t calcNumElements(const std::vector<size_t> &dims);
 };
 
-Tensor create_tensor(TensorDataType dtype, const std::vector<size_t> &dims, const std::vector<float> &data, Device &device);
+Tensor create_tensor(TensorDataType dtype, const std::vector<size_t> &dims, const std::vector<float> &data, Device *device = new CpuDevice());
 
 #endif // TENSOR_HPP

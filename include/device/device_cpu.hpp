@@ -1,3 +1,6 @@
+#ifndef DEVICE_CPU_HPP
+#define DEVICE_CPU_HPP
+
 #include "device/device.hpp"
 #include <string>
 
@@ -25,3 +28,5 @@ public:
         // Do nothing
     }
 };
+
+#endif // DEVICE_CPU_HPP

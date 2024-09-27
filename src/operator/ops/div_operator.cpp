@@ -16,9 +16,9 @@ std::vector<TensorDataType> DivOperator::inferOutputDataTypes(const std::vector<
 
 /// FIXME: Implement division by zero check
 OperatorExecuteResult DivOperator::execute(const std::vector<Tensor> &inputs, std::vector<Tensor *> &outputs,
-                                           const std::unordered_map<std::string, Node::AttributeValue> &attributes, Device &device)
+                                           const std::unordered_map<std::string, Node::AttributeValue> &attributes, Device *device)
 {
-    DeviceType deviceType = device.getType();
+    DeviceType deviceType = device->getType();
 
     switch (deviceType)
     {

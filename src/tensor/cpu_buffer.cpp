@@ -1,9 +1,14 @@
 #include "tensor/buffer.hpp"
 #include "tensor/tensor_utils.hpp"
 #include <stdexcept>
+#include <sstream>
 
-CpuBuffer::CpuBuffer(TensorDataType data_type, size_t num_elements)
-    : data_type_(data_type), num_elements_(num_elements)
+#ifdef USE_HIP
+#include "device/hip.hpp"
+#endif // USE_HIP
+
+CpuBuffer::CpuBuffer(TensorDataType data_type, size_t num_elements, CpuDevice *device)
+    : data_type_(data_type), num_elements_(num_elements), device_(device)
 {
     size_t element_size = TensorUtils::getDataTypeSize(data_type_);
     size_in_bytes_ = element_size * num_elements_;
@@ -17,6 +22,11 @@ CpuBuffer::CpuBuffer(TensorDataType data_type, size_t num_elements)
 CpuBuffer::~CpuBuffer()
 {
     free(data_);
+}
+
+Device *CpuBuffer::getDevice() const
+{
+    return device_;
 }
 
 DeviceType CpuBuffer::getDeviceType() const
@@ -68,27 +78,91 @@ void CpuBuffer::resize(size_t num_elements)
     size_in_bytes_ = new_size_in_bytes;
 }
 
-BufferOperationResult CpuBuffer::toHost()
+Buffer *CpuBuffer::to(Device *device)
 {
+    DeviceType deviceType = device->getType();
 
-    return BufferOperationResult::SUCCESS;
+    switch (deviceType)
+    {
+    case DeviceType::CPU:
+        return this; // Already a CPU buffer, return the current instance
+
+#ifdef USE_HIP
+    case DeviceType::HIP:
+    {
+        HipDevice *hipDevice = dynamic_cast<HipDevice *>(device);
+        if (!hipDevice)
+        {
+            return nullptr; // Handle this error appropriately in your code
+        }
+
+        // Create a new HipBuffer
+        HipBuffer *hipBuffer = new HipBuffer(data_type_, num_elements_);
+        hipMemcpy(hipBuffer->getDataPointer(), data_, size_in_bytes_, hipMemcpyHostToDevice);
+
+        // Free the old CPU data
+        free(data_);
+        data_ = nullptr;
+
+        // Return the new HipBuffer instance
+        return hipBuffer;
+    }
+#endif
+
+    default:
+        return nullptr; // Unsupported device type
+    }
 }
 
-BufferOperationResult CpuBuffer::to(DeviceType deviceType)
+BufferOperationResult CpuBuffer::offload(Device *device)
 {
-    if (deviceType == DeviceType::CPU)
-    {
-        return BufferOperationResult::SUCCESS;
-    }
-    else
-    {
-
-        return BufferOperationResult::NOT_IMPLEMENTED;
-    }
-}
-
-BufferOperationResult CpuBuffer::offload(DeviceType deviceType)
-{
-
     return BufferOperationResult::NOT_IMPLEMENTED;
+}
+
+// Implementation of the toString method in CpuBuffer
+std::string CpuBuffer::toString(size_t max_elements) const
+{
+    std::ostringstream oss;
+    oss << "CpuBuffer: dtype=" << TensorUtils::getDataTypeName(data_type_) << ", data=[";
+
+    // Helper lambda to handle data printing
+    auto printData = [&](auto *data_ptr)
+    {
+        for (size_t i = 0; i < num_elements_ && i < max_elements; ++i)
+        {
+            oss << data_ptr[i];
+            if (i < num_elements_ - 1 && i < max_elements - 1)
+            {
+                oss << ", ";
+            }
+        }
+        if (num_elements_ > max_elements)
+        {
+            oss << "...";
+        }
+    };
+
+    switch (data_type_)
+    {
+    case TensorDataType::FLOAT32:
+        printData(static_cast<float *>(data_));
+        break;
+    case TensorDataType::FLOAT64:
+        printData(static_cast<double *>(data_));
+        break;
+    case TensorDataType::INT32:
+        printData(static_cast<int32_t *>(data_));
+        break;
+    case TensorDataType::INT64:
+        printData(static_cast<int64_t *>(data_));
+        break;
+    case TensorDataType::INT8:
+        printData(static_cast<int8_t *>(data_));
+        break;
+    default:
+        oss << "Unsupported data type";
+    }
+
+    oss << "]";
+    return oss.str();
 }

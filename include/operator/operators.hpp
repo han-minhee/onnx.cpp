@@ -9,7 +9,7 @@
   {                                                                                                                                     \
     static OperatorExecuteResult execute(const std::vector<Tensor> &inputs,                                                             \
                                          std::vector<Tensor *> &outputs,                                                                \
-                                         const std::unordered_map<std::string, Node::AttributeValue> &attributes, Device &device);      \
+                                         const std::unordered_map<std::string, Node::AttributeValue> &attributes, Device *device);      \
     static std::vector<std::vector<size_t>> inferOutputShapes(const std::vector<Tensor> &inputs,                                        \
                                                               const std::unordered_map<std::string, Node::AttributeValue> &attributes); \
     static std::vector<TensorDataType> inferOutputDataTypes(const std::vector<Tensor> &inputs,                                          \
