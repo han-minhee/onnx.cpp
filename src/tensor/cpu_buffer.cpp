@@ -2,9 +2,10 @@
 #include "tensor/tensor_utils.hpp"
 #include <stdexcept>
 #include <sstream>
+#include "utils.hpp"
 
 #ifdef USE_HIP
-#include "device/hip.hpp"
+#include "device/device_hip.hpp"
 #endif // USE_HIP
 
 CpuBuffer::CpuBuffer(TensorDataType data_type, size_t num_elements, CpuDevice *device)
@@ -97,8 +98,8 @@ Buffer *CpuBuffer::to(Device *device)
         }
 
         // Create a new HipBuffer
-        HipBuffer *hipBuffer = new HipBuffer(data_type_, num_elements_);
-        hipMemcpy(hipBuffer->getDataPointer(), data_, size_in_bytes_, hipMemcpyHostToDevice);
+        HipBuffer *hipBuffer = new HipBuffer(data_type_, num_elements_, hipDevice);
+        hipErrorCheck(hipMemcpy(hipBuffer->getDataPointer(), data_, size_in_bytes_, hipMemcpyHostToDevice));
 
         // Free the old CPU data
         free(data_);

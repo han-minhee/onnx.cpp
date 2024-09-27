@@ -6,7 +6,7 @@ DeviceType Device::getType() const
     return DeviceType::CPU; // Default implementation or throw an exception
 }
 
-int Device::getDeviceIndex()
+int Device::getDeviceIndex() const
 {
     return 0; // Default implementation or throw an exception
 }

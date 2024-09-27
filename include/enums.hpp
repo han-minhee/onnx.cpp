@@ -68,7 +68,8 @@ enum class OperatorExecuteResult
     UNSUPPORTED_OPERATION,
     MEMORY_ALLOCATION_ERROR,
     UNKNOWN_ERROR,
-    DEVICE_UNSUPPORTED
+    DEVICE_UNSUPPORTED,
+    NOT_IMPLEMENTED
 };
 
 enum class DeviceType

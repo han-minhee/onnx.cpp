@@ -16,7 +16,7 @@ public:
     virtual ~Device() {}
     virtual DeviceType getType() const = 0;
     virtual std::string toString() const = 0;
-    virtual int getDeviceIndex() = 0;
+    virtual int getDeviceIndex() const = 0;
     virtual void setDeviceIndex(int index) = 0;
 
 private:

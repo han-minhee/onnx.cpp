@@ -13,7 +13,7 @@
 
 #ifdef USE_HIP
 #include <hip/hip_runtime.h>
-#include "device/hip.hpp"
+#include "device/device_hip.hpp"
 #endif
 
 class Buffer

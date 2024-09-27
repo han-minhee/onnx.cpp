@@ -27,7 +27,7 @@ OperatorExecuteResult SubOperator::execute(const std::vector<Tensor> &inputs, st
         return CPU_OP::SubOperatorImpl().execute(inputs, outputs, attributes);
 #ifdef USE_HIP
     case DeviceType::HIP:
-        return HIP_OP::SubOperatorImpl().execute(inputs, outputs, attributes);
+        return HIP_OP::SubOperatorImpl().execute(inputs, outputs, attributes, device);
 #endif
     default:
         return OperatorExecuteResult::DEVICE_UNSUPPORTED;

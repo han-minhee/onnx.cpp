@@ -18,7 +18,7 @@ public:
         return "CPU";
     }
 
-    int getDeviceIndex() override
+    int getDeviceIndex() const override
     {
         return 0;
     }

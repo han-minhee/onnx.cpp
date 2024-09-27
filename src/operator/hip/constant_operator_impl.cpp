@@ -8,8 +8,8 @@
 namespace HIP_OP
 {
 
-    OperatorExecuteResult SplitOperatorImpl::execute(const std::vector<Tensor> &inputs, std::vector<Tensor *> &outputs,
-                                                     const std::unordered_map<std::string, Node::AttributeValue> &attributes, Device *device)
+    OperatorExecuteResult ConstantOperatorImpl::execute(const std::vector<Tensor> &inputs, std::vector<Tensor *> &outputs,
+                                                    const std::unordered_map<std::string, Node::AttributeValue> &attributes, Device *device)
     {
         // check if the device is a HIP device
         if (device->getType() != DeviceType::HIP)
