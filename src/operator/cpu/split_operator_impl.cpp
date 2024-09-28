@@ -12,11 +12,6 @@ namespace CPU_OP
     {
         const T *input_data = input.data<T>();
 
-        if (!input_data)
-        {
-            return OperatorExecuteResult::INPUT_TENSOR_ERROR;
-        }
-
         const std::vector<size_t> &input_shape = input.getDims();
         size_t rank = input_shape.size();
 
@@ -41,26 +36,10 @@ namespace CPU_OP
             size_t split_size = static_cast<size_t>(split_sizes[i]);
             Tensor *output = outputs[i];
 
-            if (output == nullptr)
-            {
-                return OperatorExecuteResult::OUTPUT_TENSOR_ERROR;
-            }
-
             const std::vector<size_t> &output_shape = output_shapes[i];
             size_t num_elements = outer_dim * split_size * inner_dim;
 
-            // Allocate the output buffer if not allocated or if dimensions mismatch
-            if (!output->data<T>() || output->getNumElements() != num_elements)
-            {
-                output->allocateBuffer(input.getDataType(), num_elements);
-                output->reshape(output_shape);
-            }
-
             T *output_data = output->data<T>();
-            if (!output_data)
-            {
-                return OperatorExecuteResult::MEMORY_ALLOCATION_ERROR;
-            }
 
             // Copy data from input to output
             for (size_t outer = 0; outer < outer_dim; ++outer)
@@ -87,17 +66,16 @@ namespace CPU_OP
     OperatorExecuteResult SplitOperatorImpl::execute(const std::vector<Tensor> &inputs, std::vector<Tensor *> &outputs,
                                                      const std::unordered_map<std::string, Node::AttributeValue> &attributes)
     {
-        if (inputs.empty())
-        {
-            return OperatorExecuteResult::INPUT_TENSOR_ERROR;
-        }
-
         std::vector<std::vector<size_t>> output_shapes;
         for (const Tensor *output : outputs)
         {
             if (output == nullptr)
             {
                 return OperatorExecuteResult::OUTPUT_TENSOR_ERROR;
+            }
+            if (output->getDims().empty())
+            {
+                return OperatorExecuteResult::SHAPE_MISMATCH_ERROR;
             }
             output_shapes.push_back(output->getDims());
         }
@@ -110,8 +88,7 @@ namespace CPU_OP
             axis = std::get<int64_t>(attributes.at("axis"));
         }
 
-        const std::vector<size_t> &input_shape = input.getDims();
-        size_t rank = input_shape.size();
+        size_t rank = input.getNDim();
 
         if (axis < 0)
         {

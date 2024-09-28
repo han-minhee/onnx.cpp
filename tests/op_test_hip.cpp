@@ -96,8 +96,6 @@ void run_and_check_operator(const OperatorRegistry::OperatorFunctions *op,
         for (size_t i = 0; i < output_shapes.size(); i++)                                                      \
         {                                                                                                      \
             outputs.push_back(new Tensor(output_data_types[i], output_shapes[i], device));                     \
-            \ 
-                                                                                                         \
         }                                                                                                      \
                                                                                                                \
         run_and_check_operator(op, input_tensors, outputs, expected_tensors, attributes,                       \
@@ -381,28 +379,32 @@ TEST(OperatorTestHIP, GatherOperatorBasic)
     RUN_TEST_CASE(OperatorType::Gather, inputs, expected_tensors, attributes, OperatorExecuteResult::SUCCESS, &hipDevice);
 }
 
-// // ----------------------- MatMulOperator Tests -----------------------
-// TEST(OperatorTestHIP, MatMulOperatorBasic)
-// {
-//     // Basic matrix multiplication
-//     Tensor A(TensorDataType::FLOAT32, {2, 3},
-//                              {1, 2, 3,
-//                               4, 5, 6});
-//     Tensor B(TensorDataType::FLOAT32, {3, 2},
-//                              {7, 8,
-//                               9, 10,
-//                               11, 12});
-//     Tensor expected(TensorDataType::FLOAT32, {2, 2},
-//                                     {58, 64,
-//                                      139, 154});
+// ----------------------- MatMulOperator Tests -----------------------
+TEST(OperatorTestHIP, MatMulOperatorBasic)
+{
+    // Basic matrix multiplication
+    HipDevice hipDevice = HipDevice(0);
+    Tensor A(TensorDataType::FLOAT32, {2, 3},
+             std::vector<float>{1, 2, 3,
+                                4, 5, 6},
+             &hipDevice);
+    Tensor B(TensorDataType::FLOAT32, {3, 2},
+             std::vector<float>{7, 8,
+                                9, 10,
+                                11, 12},
+             &hipDevice);
+    Tensor expected(TensorDataType::FLOAT32, {2, 2},
+                    std::vector<float>{58, 64,
+                                       139, 154},
+                    &hipDevice);
 
-//     std::unordered_map<std::string, Node::AttributeValue> attributes;
+    std::unordered_map<std::string, Node::AttributeValue> attributes;
 
-//     std::vector<Tensor> inputs = {A, B};
-//     std::vector<Tensor> expected_tensors = {expected};
+    std::vector<Tensor> inputs = {A, B};
+    std::vector<Tensor> expected_tensors = {expected};
 
-//     RUN_TEST_CASE(OperatorType::MatMul, inputs, expected_tensors, attributes, OperatorExecuteResult::SUCCESS, &hipDevice);
-// }
+    RUN_TEST_CASE(OperatorType::MatMul, inputs, expected_tensors, attributes, OperatorExecuteResult::SUCCESS, &hipDevice);
+}
 
 // ----------------------- MaxPoolOperator Tests -----------------------
 TEST(OperatorTestHIP, MaxPoolOperatorBasic)
@@ -506,42 +508,47 @@ TEST(OperatorTestHIP, SoftmaxOperatorBasic)
     RUN_TEST_CASE(OperatorType::Softmax, inputs, expected_tensors, attributes, OperatorExecuteResult::SUCCESS, &hipDevice);
 }
 
-// // ----------------------- SplitOperator Tests -----------------------
-// TEST(OperatorTestHIP, SplitOperatorBasic)
-// {
-//     // Basic split test
-//     Tensor data(TensorDataType::FLOAT32, {2, 4},
-//                                 {1, 2, 3, 4,
-//                                  5, 6, 7, 8});
-//     Tensor split(TensorDataType::INT64, {2}, {2, 2});
-//     Tensor expected1(TensorDataType::FLOAT32, {2, 2},
-//                                      {1, 2,
-//                                       5, 6});
-//     Tensor expected2(TensorDataType::FLOAT32, {2, 2},
-//                                      {3, 4,
-//                                       7, 8});
-//     std::unordered_map<std::string, Node::AttributeValue> attributes;
-//     attributes["axis"] = 1;
+// ----------------------- SplitOperator Tests -----------------------
+TEST(OperatorTestHIP, SplitOperatorBasic)
+{
+    // Basic split test
+    HipDevice hipDevice = HipDevice(0);
+    Tensor data(TensorDataType::FLOAT32, {2, 4},
+                std::vector<float>{1, 2, 3, 4,
+                                   5, 6, 7, 8},
+                &hipDevice);
+    Tensor split(TensorDataType::INT64, {2}, std::vector<int64_t>{2, 2}, &hipDevice);
+    Tensor expected1(TensorDataType::FLOAT32, {2, 2},
+                     std::vector<float>{1, 2,
+                                        5, 6},
+                     &hipDevice);
+    Tensor expected2(TensorDataType::FLOAT32, {2, 2},
+                     std::vector<float>{3, 4,
+                                        7, 8},
+                     &hipDevice);
+    std::unordered_map<std::string, Node::AttributeValue> attributes;
+    attributes["axis"] = 1;
 
-//     std::vector<Tensor> inputs = {data, split};
-//     std::vector<Tensor> expected_tensors = {expected1, expected2};
+    std::vector<Tensor> inputs = {data, split};
+    std::vector<Tensor> expected_tensors = {expected1, expected2};
 
-//     RUN_TEST_CASE(OperatorType::Split, inputs, expected_tensors, attributes, OperatorExecuteResult::SUCCESS, &hipDevice);
-// }
+    RUN_TEST_CASE(OperatorType::Split, inputs, expected_tensors, attributes, OperatorExecuteResult::SUCCESS, &hipDevice);
+}
 
-// /// FIXME: Shape mismatch should be handled during the shape inference phase
-// // TEST(OperatorTest1, SplitOperatorShapeMismatchError)
-// // {
-// //     Tensor data(TensorDataType::FLOAT32, {2, 4}, {1, 2, 3, 4, 5, 6, 7, 8});
-// //     Tensor split(TensorDataType::INT64, {2}, {3, 2});
-// //     std::unordered_map<std::string, Node::AttributeValue> attributes;
-// //     attributes["axis"] = 1;
+TEST(OperatorTest1, SplitOperatorShapeMismatchError)
+{
+    // Shape mismatch error
+    HipDevice hipDevice = HipDevice(0);
+    Tensor data(TensorDataType::FLOAT32, {2, 4}, std::vector<float>{1, 2, 3, 4, 5, 6, 7, 8}, &hipDevice);
+    Tensor split(TensorDataType::INT64, {2}, std::vector<int64_t>{3, 2}, &hipDevice);
+    std::unordered_map<std::string, Node::AttributeValue> attributes;
+    attributes["axis"] = 1;
 
-// //     std::vector<Tensor> inputs = {data, split};
-// //     std::vector<Tensor> expected_tensors;
+    std::vector<Tensor> inputs = {data, split};
+    std::vector<Tensor> expected_tensors;
 
-// //     RUN_TEST_CASE(OperatorType::Split, inputs, expected_tensors, attributes, DeviceType::CPU, OperatorExecuteResult::SHAPE_MISMATCH_ERROR);
-// // }
+    RUN_TEST_CASE(OperatorType::Split, inputs, expected_tensors, attributes, OperatorExecuteResult::OUTPUT_TENSOR_ERROR, &hipDevice);
+}
 
 // ----------------------- TransposeOperator Tests -----------------------
 TEST(OperatorTestHIP, TransposeOperatorBasic)
@@ -559,41 +566,44 @@ TEST(OperatorTestHIP, TransposeOperatorBasic)
     RUN_TEST_CASE(OperatorType::Transpose, inputs, expected_tensors, attributes, OperatorExecuteResult::SUCCESS, &hipDevice);
 }
 
-// // ----------------------- ReshapeOperator Tests -----------------------
-// TEST(OperatorTestHIP, ReshapeOperatorBasic)
-// {
-//     // Basic reshape test
-//     Tensor data(TensorDataType::FLOAT32, {2, 3}, {1, 2, 3, 4, 5, 6});
-//     Tensor shape(TensorDataType::INT64, {3}, {3, 2, 1});
-//     Tensor expected(TensorDataType::FLOAT32, {3, 2, 1}, {1, 2, 3, 4, 5, 6});
+// ----------------------- ReshapeOperator Tests -----------------------
+TEST(OperatorTestHIP, ReshapeOperatorBasic)
+{
+    // Basic reshape test
+    HipDevice hipDevice = HipDevice(0);
+    Tensor data(TensorDataType::FLOAT32, {2, 3}, std::vector<float>{1, 2, 3, 4, 5, 6}, &hipDevice);
+    Tensor shape(TensorDataType::INT64, {3}, std::vector<int64_t>{3, 2, 1}, &hipDevice);
+    Tensor expected(TensorDataType::FLOAT32, {3, 2, 1}, std::vector<float>{1, 2, 3, 4, 5, 6}, &hipDevice);
 
-//     std::unordered_map<std::string, Node::AttributeValue> attributes;
+    std::unordered_map<std::string, Node::AttributeValue> attributes;
 
-//     std::vector<Tensor> inputs = {data, shape};
-//     std::vector<Tensor> expected_tensors = {expected};
+    std::vector<Tensor> inputs = {data, shape};
+    std::vector<Tensor> expected_tensors = {expected};
 
-//     RUN_TEST_CASE(OperatorType::Reshape, inputs, expected_tensors, attributes, OperatorExecuteResult::SUCCESS, &hipDevice);
-// }
+    RUN_TEST_CASE(OperatorType::Reshape, inputs, expected_tensors, attributes, OperatorExecuteResult::SUCCESS, &hipDevice);
+}
 
-// // ----------------------- ResizeOperator Tests -----------------------
-// TEST(OperatorTestHIP, ResizeOperatorBasic)
-// {
-//     // Basic resize test (nearest neighbor)
-//     Tensor data(TensorDataType::FLOAT32, {1, 1, 2, 2}, {1, 2, 3, 4});
-//     Tensor scales(TensorDataType::FLOAT32, {4}, {1.0f, 1.0f, 2.0f, 2.0f});
-//     Tensor expected(TensorDataType::FLOAT32, {1, 1, 4, 4},
-//                                     {1, 1, 2, 2,
-//                                      1, 1, 2, 2,
-//                                      3, 3, 4, 4,
-//                                      3, 3, 4, 4});
-//     std::unordered_map<std::string, Node::AttributeValue> attributes;
-//     attributes["mode"] = std::string("nearest");
+// ----------------------- ResizeOperator Tests -----------------------
+TEST(OperatorTestHIP, ResizeOperatorBasic)
+{
+    // Basic resize test (nearest neighbor)
+    HipDevice hipDevice = HipDevice(0);
+    Tensor data(TensorDataType::FLOAT32, {1, 1, 2, 2}, std::vector<float>{1, 2, 3, 4}, &hipDevice);
+    Tensor scales(TensorDataType::FLOAT32, {4}, std::vector<float>{1.0f, 1.0f, 2.0f, 2.0f}, &hipDevice);
+    Tensor expected(TensorDataType::FLOAT32, {1, 1, 4, 4},
+                    std::vector<float>{1, 1, 2, 2,
+                                       1, 1, 2, 2,
+                                       3, 3, 4, 4,
+                                       3, 3, 4, 4},
+                    &hipDevice);
+    std::unordered_map<std::string, Node::AttributeValue> attributes;
+    attributes["mode"] = std::string("nearest");
 
-//     std::vector<Tensor> inputs = {data, Tensor(), scales};
-//     std::vector<Tensor> expected_tensors = {expected};
+    std::vector<Tensor> inputs = {data, Tensor(), scales};
+    std::vector<Tensor> expected_tensors = {expected};
 
-//     RUN_TEST_CASE(OperatorType::Resize, inputs, expected_tensors, attributes, OperatorExecuteResult::SUCCESS, &hipDevice);
-// }
+    RUN_TEST_CASE(OperatorType::Resize, inputs, expected_tensors, attributes, OperatorExecuteResult::SUCCESS, &hipDevice);
+}
 
 // ----------------------- ShapeOperator Tests -----------------------
 TEST(OperatorTestHIP, ShapeOperatorBasic)

@@ -398,19 +398,19 @@ TEST(OperaotrTestCPU, SplitOperatorBasic)
     RUN_TEST_CASE(OperatorType::Split, inputs, expected_tensors, attributes, OperatorExecuteResult::SUCCESS);
 }
 
-/// FIXME: Shape mismatch should be handled during the shape inference phase
-// TEST(OperatorTest1, SplitOperatorShapeMismatchError)
-// {
-//     Tensor data = create_tensor(TensorDataType::FLOAT32, {2, 4}, {1, 2, 3, 4, 5, 6, 7, 8});
-//     Tensor split = create_tensor(TensorDataType::INT64, {2}, {3, 2});
-//     std::unordered_map<std::string, Node::AttributeValue> attributes;
-//     attributes["axis"] = 1;
+// / FIXME: Shape mismatch should be handled during the shape inference phase
+TEST(OperatorTest1, SplitOperatorShapeMismatchError)
+{
+    Tensor data = create_tensor(TensorDataType::FLOAT32, {2, 4}, {1, 2, 3, 4, 5, 6, 7, 8});
+    Tensor split = create_tensor(TensorDataType::INT64, {2}, {3, 2});
+    std::unordered_map<std::string, Node::AttributeValue> attributes;
+    attributes["axis"] = 1;
 
-//     std::vector<Tensor> inputs = {data, split};
-//     std::vector<Tensor> expected_tensors;
+    std::vector<Tensor> inputs = {data, split};
+    std::vector<Tensor> expected_tensors;
 
-//     RUN_TEST_CASE(OperatorType::Split, inputs, expected_tensors, attributes, OperatorExecuteResult::SHAPE_MISMATCH_ERROR);
-// }
+    RUN_TEST_CASE(OperatorType::Split, inputs, expected_tensors, attributes, OperatorExecuteResult::OUTPUT_TENSOR_ERROR);
+}
 
 // ----------------------- SubOperator Tests -----------------------
 TEST(OperaotrTestCPU, SubOperatorBasic)
