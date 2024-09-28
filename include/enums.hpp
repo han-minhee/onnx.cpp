@@ -70,6 +70,9 @@ enum class OperatorExecuteResult
     UNKNOWN_ERROR,
     DEVICE_UNSUPPORTED,
     NOT_IMPLEMENTED
+    #ifdef USE_HIP
+    ,HIP_ERROR
+    #endif
 };
 
 enum class DeviceType

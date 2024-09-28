@@ -127,61 +127,67 @@ TEST(OperaotrTestCPU, AddOperatorBasic)
     std::cout << "AddOperatorBasic test passed" << std::endl;
 }
 
-// TEST(OperaotrTestCPU, AddOperatorBroadcastScalar)
-// {
-//     // Broadcasting scalar addition
-//     Tensor t1 = create_tensor(TensorDataType::FLOAT32, {2, 2}, {1.0f, 2.0f, 3.0f, 4.0f});
-//     Tensor t2 = create_tensor(TensorDataType::FLOAT32, {}, {10.0f}); // Scalar tensor
-//     Tensor expected = create_tensor(TensorDataType::FLOAT32, {2, 2}, {11.0f, 12.0f, 13.0f, 14.0f});
-//     std::unordered_map<std::string, Node::AttributeValue> attributes;
+TEST(OperaotrTestCPU, AddOperatorBroadcastScalar)
+{
+    // Broadcasting scalar addition
+    HipDevice hipDevice = HipDevice(0);
+    Tensor t1 = create_tensor(TensorDataType::FLOAT32, {2, 2}, {1.0f, 2.0f, 3.0f, 4.0f}, &hipDevice);
+    Tensor t2 = create_tensor(TensorDataType::FLOAT32, {}, {10.0f}, &hipDevice); // Scalar tensor
+    Tensor expected = create_tensor(TensorDataType::FLOAT32, {2, 2}, {11.0f, 12.0f, 13.0f, 14.0f}, &hipDevice);
+    std::unordered_map<std::string, Node::AttributeValue> attributes;
 
-//     std::vector<Tensor> inputs = {t1, t2};
-//     std::vector<Tensor> expected_tensors = {expected};
+    std::vector<Tensor> inputs = {t1, t2};
+    std::vector<Tensor> expected_tensors = {expected};
 
-//     RUN_TEST_CASE(OperatorType::Add, inputs, expected_tensors, attributes, DeviceType::CPU, OperatorExecuteResult::SUCCESS);
-// }
+    RUN_TEST_CASE(OperatorType::Add, inputs, expected_tensors, attributes, OperatorExecuteResult::SUCCESS, &hipDevice);
+}
 
-// TEST(OperaotrTestCPU, AddOperatorShapeMismatchError)
-// {
-//     Tensor t1 = create_tensor(TensorDataType::FLOAT32, {2, 2}, {1.0f, 2.0f, 3.0f, 4.0f});
-//     Tensor t2 = create_tensor(TensorDataType::FLOAT32, {3, 2}, {5.0f, 6.0f, 7.0f, 8.0f, 9.0f, 10.0f});
-//     std::unordered_map<std::string, Node::AttributeValue> attributes;
+TEST(OperaotrTestCPU, AddOperatorShapeMismatchError)
+{
+    // Shape mismatch error
+    HipDevice hipDevice = HipDevice(0);
+    Tensor t1 = create_tensor(TensorDataType::FLOAT32, {2, 2}, {1.0f, 2.0f, 3.0f, 4.0f}, &hipDevice);
+    Tensor t2 = create_tensor(TensorDataType::FLOAT32, {3, 2}, {5.0f, 6.0f, 7.0f, 8.0f, 9.0f, 10.0f}, &hipDevice);
+    std::unordered_map<std::string, Node::AttributeValue> attributes;
 
-//     std::vector<Tensor> inputs = {t1, t2};
-//     std::vector<Tensor> expected_tensors;
+    std::vector<Tensor> inputs = {t1, t2};
+    std::vector<Tensor> expected_tensors;
 
-//     RUN_TEST_CASE(OperatorType::Add, inputs, expected_tensors, attributes, DeviceType::CPU, OperatorExecuteResult::SHAPE_MISMATCH_ERROR);
-// }
+    RUN_TEST_CASE(OperatorType::Add, inputs, expected_tensors, attributes, OperatorExecuteResult::SHAPE_MISMATCH_ERROR, &hipDevice);
+}
 
-// // ----------------------- ConcatOperator Tests -----------------------
-// TEST(OperaotrTestCPU, ConcatOperatorBasic)
-// {
-//     // Basic concatenation along axis 0
-//     Tensor t1 = create_tensor(TensorDataType::FLOAT32, {2, 3}, {1, 2, 3, 4, 5, 6});
-//     Tensor t2 = create_tensor(TensorDataType::FLOAT32, {2, 3}, {7, 8, 9, 10, 11, 12});
-//     Tensor expected = create_tensor(TensorDataType::FLOAT32, {4, 3},
-//                                     {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12});
-//     std::unordered_map<std::string, Node::AttributeValue> attributes;
-//     attributes["axis"] = 0;
+// ----------------------- ConcatOperator Tests -----------------------
+TEST(OperaotrTestCPU, ConcatOperatorBasic)
+{
+    // Basic concatenation along axis 0
+    HipDevice hipDevice = HipDevice(0);
+    Tensor t1 = create_tensor(TensorDataType::FLOAT32, {2, 3}, {1, 2, 3, 4, 5, 6}, &hipDevice);
+    Tensor t2 = create_tensor(TensorDataType::FLOAT32, {2, 3}, {7, 8, 9, 10, 11, 12}, &hipDevice);
+    Tensor expected = create_tensor(TensorDataType::FLOAT32, {4, 3},
+                                    {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12}, &hipDevice);
+    std::unordered_map<std::string, Node::AttributeValue> attributes;
+    attributes["axis"] = 0;
 
-//     std::vector<Tensor> inputs = {t1, t2};
-//     std::vector<Tensor> expected_tensors = {expected};
+    std::vector<Tensor> inputs = {t1, t2};
+    std::vector<Tensor> expected_tensors = {expected};
 
-//     RUN_TEST_CASE(OperatorType::Concat, inputs, expected_tensors, attributes, DeviceType::CPU, OperatorExecuteResult::SUCCESS);
-// }
+    RUN_TEST_CASE(OperatorType::Concat, inputs, expected_tensors, attributes, OperatorExecuteResult::SUCCESS, &hipDevice);
+}
 
-// TEST(OperaotrTestCPU, ConcatOperatorShapeMismatchError)
-// {
-//     Tensor t1 = create_tensor(TensorDataType::FLOAT32, {2, 2}, {1, 2, 3, 4});
-//     Tensor t2 = create_tensor(TensorDataType::FLOAT32, {2, 3}, {5, 6, 7, 8, 9, 10});
-//     std::unordered_map<std::string, Node::AttributeValue> attributes;
-//     attributes["axis"] = 0;
+TEST(OperaotrTestCPU, ConcatOperatorShapeMismatchError)
+{
+    // Shape mismatch error
+    HipDevice hipDevice = HipDevice(0);
+    Tensor t1 = create_tensor(TensorDataType::FLOAT32, {2, 2}, {1, 2, 3, 4}, &hipDevice);
+    Tensor t2 = create_tensor(TensorDataType::FLOAT32, {2, 3}, {5, 6, 7, 8, 9, 10}, &hipDevice);
+    std::unordered_map<std::string, Node::AttributeValue> attributes;
+    attributes["axis"] = 0;
 
-//     std::vector<Tensor> inputs = {t1, t2};
-//     std::vector<Tensor> expected_tensors;
+    std::vector<Tensor> inputs = {t1, t2};
+    std::vector<Tensor> expected_tensors;
 
-//     RUN_TEST_CASE(OperatorType::Concat, inputs, expected_tensors, attributes, DeviceType::CPU, OperatorExecuteResult::SHAPE_MISMATCH_ERROR);
-// }
+    RUN_TEST_CASE(OperatorType::Concat, inputs, expected_tensors, attributes, OperatorExecuteResult::SHAPE_MISMATCH_ERROR, &hipDevice);
+}
 
 // // ----------------------- ConstantOperator Tests -----------------------
 // TEST(OperaotrTestCPU, ConstantOperatorBasic)

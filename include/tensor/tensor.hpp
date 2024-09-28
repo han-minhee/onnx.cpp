@@ -14,8 +14,8 @@ public:
     Tensor(Device *device = new CpuDevice());
     Tensor(TensorDataType dtype, const std::vector<size_t> &dims, Device *device = new CpuDevice());
 
-    const std::vector<size_t> &getDims() const;
-    const std::vector<size_t> &getStrides() const;
+    std::vector<size_t> getDims() const;
+    std::vector<size_t> getStrides() const;
     size_t getNDim() const;
     size_t getNumElements() const;
 
@@ -44,6 +44,9 @@ public:
 
     void to(Device *device);
     Device *getDevice();
+
+    void *getDataPointer();
+    const void *getDataPointer() const;
 
 private:
     Device *device_;

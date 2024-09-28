@@ -1,5 +1,6 @@
 #ifdef USE_HIP
 #include "operator/operators.hpp"
+#include "operator/elementwise_operator.hpp"
 
 #include <hip/hip_runtime.h>
 #include <vector>
@@ -11,91 +12,62 @@
 
 namespace HIP_OP
 {
-    // Helper function to compute the broadcasted shape
-    std::vector<size_t> broadcastShapes(const std::vector<size_t> &shape1, const std::vector<size_t> &shape2)
-    {
-        size_t ndim1 = shape1.size();
-        size_t ndim2 = shape2.size();
-        size_t ndim = std::max(ndim1, ndim2);
-
-        std::vector<size_t> result_shape(ndim, 1);
-
-        for (size_t i = 0; i < ndim; ++i)
-        {
-            size_t dim1 = (i < ndim - ndim1) ? 1 : shape1[i - (ndim - ndim1)];
-            size_t dim2 = (i < ndim - ndim2) ? 1 : shape2[i - (ndim - ndim2)];
-
-            if (dim1 != dim2 && dim1 != 1 && dim2 != 1)
-            {
-                throw std::runtime_error("Shapes are not broadcastable");
-            }
-
-            result_shape[i] = std::max(dim1, dim2);
-        }
-
-        return result_shape;
-    }
 
     template <typename T>
-    void debugPrint(const void *device_ptr, size_t num_elements, const std::string &name)
+    __global__ void add_kernel(const T *A_data, const size_t *A_dims, const size_t *A_strides,
+                               const T *B_data, const size_t *B_dims, const size_t *B_strides,
+                               T *C_data, const size_t *C_dims, const size_t *C_strides,
+                               size_t num_elements, size_t A_ndims, size_t B_ndims, size_t C_ndims)
     {
-        std::vector<T> host_data(num_elements);
-        hipMemcpy(host_data.data(), device_ptr, num_elements * sizeof(T), hipMemcpyDeviceToHost);
+        size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
+        if (idx >= num_elements)
+            return;
 
-        std::cout << "First 5 elements of " << name << ": ";
-        for (size_t i = 0; i < std::min(num_elements, size_t(5)); ++i)
+        // Compute the multi-dimensional index for C
+        size_t indices[MAX_DIMS];
+        size_t tmp = idx;
+        for (int i = C_ndims - 1; i >= 0; --i)
         {
-            std::cout << host_data[i] << " ";
+            indices[i] = tmp % C_dims[i];
+            tmp /= C_dims[i];
         }
-        std::cout << std::endl;
 
-        // last 5 elements
-        std::cout << "Last 5 elements of " << name << ": ";
-        for (size_t i = std::max(num_elements, size_t(5)) - 5; i < num_elements; ++i)
+        // Compute the index in A
+        size_t A_idx = 0;
+        for (int i = 0; i < A_ndims; ++i)
         {
-            std::cout << host_data[i] << " ";
+            size_t dim = A_dims[i];
+            size_t stride = A_strides[i];
+            size_t index = indices[i];
+            if (dim == 1)
+            {
+                index = 0; // broadcasting dimension
+            }
+            A_idx += index * stride;
         }
-        std::cout << std::endl;
-    }
 
-    // HIP kernel for element-wise addition
-    __global__ void addKernel(const float *A, const float *B, float *C, size_t num_elements)
-    {
-        size_t idx = blockDim.x * blockIdx.x + threadIdx.x;
-        if (idx < num_elements)
+        // Compute the index in B
+        size_t B_idx = 0;
+        for (int i = 0; i < B_ndims; ++i)
         {
-            C[idx] = A[idx] + B[idx];
+            size_t dim = B_dims[i];
+            size_t stride = B_strides[i];
+            size_t index = indices[i];
+            if (dim == 1)
+            {
+                index = 0; // broadcasting dimension
+            }
+            B_idx += index * stride;
         }
-    }
 
-    __global__ void printAB(const float *A, const float *B, size_t num_elements)
-    {
-        size_t idx = blockDim.x * blockIdx.x + threadIdx.x;
-        if (idx < num_elements)
-        {
-            printf("A[%d] = %f, B[%d] = %f\n", idx, A[idx], idx, B[idx]);
-        }
+        // Perform the addition
+        C_data[idx] = A_data[A_idx] + B_data[B_idx];
     }
 
     OperatorExecuteResult AddOperatorImpl::execute(const std::vector<Tensor> &inputs, std::vector<Tensor *> &outputs,
                                                    const std::unordered_map<std::string, Node::AttributeValue> &attributes, Device *device)
     {
-        // Check if the device is a HIP device
-        if (device->getType() != DeviceType::HIP)
-        {
-            throw std::runtime_error("Device is not a HIP device");
-        }
 
-        // Check inputs and outputs size
-        if (inputs.size() != 2)
-        {
-            throw std::runtime_error("Add operator requires exactly 2 inputs");
-        }
-
-        if (outputs.size() != 1)
-        {
-            throw std::runtime_error("Add operator requires exactly 1 output");
-        }
 
         const Tensor &A = inputs[0];
         const Tensor &B = inputs[1];
@@ -110,47 +82,56 @@ namespace HIP_OP
             throw std::runtime_error("Input tensors must have the same data type");
         }
 
-        // Compute the output dimensions according to broadcasting rules
-        std::vector<size_t> output_dims = broadcastShapes(A.getDims(), B.getDims());
-
-        // Allocate the output tensor
-        // if (C->getDims() != output_dims)
-        // {
-        //     *C = Tensor(dtype, output_dims, device);
-        // }
+        const std::vector<size_t> output_dims = C->getDims();
 
         // Get the data pointers
         const void *A_data = A.getBuffer()->getDataPointer();
         const void *B_data = B.getBuffer()->getDataPointer();
         void *C_data = C->getBuffer()->getDataPointer();
 
-        // temporarily, let's make a C_data, and not get it from the output tensor
-        // void *C_data; // this will be used to allocate hip memory
-        // hipMalloc(&C_data, C->getNumElements() * sizeof(float));
-
         // Get the number of elements
         size_t num_elements_A = A.getNumElements();
         size_t num_elements_B = B.getNumElements();
         size_t num_elements_C = C->getNumElements();
 
-        // Debug prints
-        debugPrint<float>(A_data, num_elements_A, "Tensor A");
-        debugPrint<float>(B_data, num_elements_B, "Tensor B");
-        debugPrint<float>(C_data, num_elements_C, "Tensor C (before operation)");
+        // get the dims and strides
+        const std::vector<size_t> A_dims = A.getDims();
+        const std::vector<size_t> B_dims = B.getDims();
+        const std::vector<size_t> C_dims = C->getDims();
+        const std::vector<size_t> A_strides = A.getStrides();
+        const std::vector<size_t> B_strides = B.getStrides();
+        const std::vector<size_t> C_strides = C->getStrides();
 
-        // Launch the kernel to perform element-wise addition
-        size_t blockSize = 256;
-        size_t numBlocks = (num_elements_C + blockSize - 1) / blockSize;
+        // make device pointers and allocate memory for dims and strides
+        size_t *d_A_dims, *d_B_dims, *d_C_dims;
+        size_t *d_A_strides, *d_B_strides, *d_C_strides;
+        size_t A_ndims = A_dims.size();
+        size_t B_ndims = B_dims.size();
+        size_t C_ndims = C_dims.size();
 
-        hipKernelLaunchCheck(hipLaunchKernelGGL(addKernel, dim3(numBlocks), dim3(blockSize), 0, 0, (const float *)A_data, (const float *)B_data, (float *)C_data, num_elements_C));
+        hipErrorCheck(hipMalloc(&d_A_dims, A_ndims * sizeof(size_t)));
+        hipErrorCheck(hipMalloc(&d_B_dims, B_ndims * sizeof(size_t)));
+        hipErrorCheck(hipMalloc(&d_C_dims, C_ndims * sizeof(size_t)));
+        hipErrorCheck(hipMalloc(&d_A_strides, A_ndims * sizeof(size_t)));
+        hipErrorCheck(hipMalloc(&d_B_strides, B_ndims * sizeof(size_t)));
+        hipErrorCheck(hipMalloc(&d_C_strides, C_ndims * sizeof(size_t)));
 
-        hipKernelLaunchCheck(hipLaunchKernelGGL(printAB, dim3(numBlocks), dim3(blockSize), 0, 0, (const float *)A_data, (const float *)B_data, num_elements_C));
+        hipErrorCheck(hipMemcpy(d_A_dims, A_dims.data(), A_ndims * sizeof(size_t), hipMemcpyHostToDevice));
+        hipErrorCheck(hipMemcpy(d_B_dims, B_dims.data(), B_ndims * sizeof(size_t), hipMemcpyHostToDevice));
+        hipErrorCheck(hipMemcpy(d_C_dims, C_dims.data(), C_ndims * sizeof(size_t), hipMemcpyHostToDevice));
+        hipErrorCheck(hipMemcpy(d_A_strides, A_strides.data(), A_ndims * sizeof(size_t), hipMemcpyHostToDevice));
+        hipErrorCheck(hipMemcpy(d_B_strides, B_strides.data(), B_ndims * sizeof(size_t), hipMemcpyHostToDevice));
+        hipErrorCheck(hipMemcpy(d_C_strides, C_strides.data(), C_ndims * sizeof(size_t), hipMemcpyHostToDevice));
+
+        // launch the kernel
+        hipKernelLaunchCheck(hipLaunchKernelGGL(add_kernel<float>, dim3((num_elements_C + 255) / 256), dim3(256), 0, 0,
+                                                (float *)A_data, d_A_dims, d_A_strides,
+                                                (float *)B_data, d_B_dims, d_B_strides,
+                                                (float *)C_data, d_C_dims, d_C_strides,
+                                                num_elements_C, A_ndims, B_ndims, C_ndims));
 
         // Wait for the kernel to finish
         hipErrorCheck(hipDeviceSynchronize());
-
-        // Debug print after operation
-        debugPrint<float>(C_data, num_elements_C, "Tensor C (after operation)");
 
         return OperatorExecuteResult::SUCCESS;
     }

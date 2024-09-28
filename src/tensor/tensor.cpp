@@ -35,12 +35,12 @@ std::vector<size_t> Tensor::calcStrides(const std::vector<size_t> &dims)
     return stride;
 }
 
-const std::vector<size_t> &Tensor::getDims() const
+std::vector<size_t> Tensor::getDims() const
 {
     return dimensions_;
 }
 
-const std::vector<size_t> &Tensor::getStrides() const
+std::vector<size_t> Tensor::getStrides() const
 {
     return strides_;
 }
@@ -303,4 +303,18 @@ void Tensor::to(Device *device)
         buffer_ = std::shared_ptr<Buffer>(new_buffer);
         device_ = device;
     }
+}
+
+
+    // void *getDataPointer() override;
+    // const void *getDataPointer() const override;
+
+void *Tensor::getDataPointer()
+{
+    return buffer_->getDataPointer();
+}
+
+const void *Tensor::getDataPointer() const
+{
+    return buffer_->getDataPointer();
 }
