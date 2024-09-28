@@ -14,7 +14,7 @@ public:
     using ExecuteFunction = std::function<OperatorExecuteResult(const std::vector<Tensor> &,
                                                                 std::vector<Tensor *> &,
                                                                 const std::unordered_map<std::string, Node::AttributeValue> &,
-                                                                DeviceType)>;
+                                                                Device *)>;
 
     using InferOutputShapesFunction = std::function<std::vector<std::vector<size_t>>(const std::vector<Tensor> &,
                                                                                      const std::unordered_map<std::string, Node::AttributeValue> &)>;

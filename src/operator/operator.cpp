@@ -92,7 +92,8 @@ namespace OperatorUtils
             return "DEVICE_UNSUPPORTED";
         case OperatorExecuteResult::UNKNOWN_ERROR:
             return "UNKNOWN_ERROR";
-
+        case OperatorExecuteResult::NOT_IMPLEMENTED:
+            return "NOT_IMPLEMENTED";
         default:
             return "UNKNOWN";
         }

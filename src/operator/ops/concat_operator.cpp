@@ -96,15 +96,75 @@ std::vector<TensorDataType> ConcatOperator::inferOutputDataTypes(
 OperatorExecuteResult ConcatOperator::execute(
     const std::vector<Tensor> &inputs,
     std::vector<Tensor *> &outputs,
-    const std::unordered_map<std::string, Node::AttributeValue> &attributes, DeviceType deviceType)
+    const std::unordered_map<std::string, Node::AttributeValue> &attributes, Device *device)
 {
+    if (inputs.empty())
+    {
+        return OperatorExecuteResult::INPUT_TENSOR_ERROR;
+    }
+
+    if (attributes.find("axis") == attributes.end())
+    {
+        return OperatorExecuteResult::ATTRIBUTE_ERROR;
+    }
+
+    int64_t axis = std::get<int64_t>(attributes.at("axis"));
+    size_t rank = inputs[0].getNDim();
+
+    // Adjust negative axis
+    if (axis < 0)
+    {
+        axis += static_cast<int64_t>(rank);
+    }
+
+    if (axis < 0 || axis >= static_cast<int64_t>(rank))
+    {
+        return OperatorExecuteResult::ATTRIBUTE_ERROR;
+    }
+
+    TensorDataType data_type = inputs[0].getDataType();
+    for (const auto &input : inputs)
+    {
+        if (input.getDataType() != data_type)
+        {
+            return OperatorExecuteResult::DATA_TYPE_ERROR;
+        }
+
+        if (input.getNDim() != rank)
+        {
+            return OperatorExecuteResult::SHAPE_MISMATCH_ERROR;
+        }
+
+        const auto &input_shape = input.getDims();
+        const auto &reference_shape = inputs[0].getDims();
+
+        for (size_t dim = 0; dim < rank; ++dim)
+        {
+            if (dim == static_cast<size_t>(axis))
+            {
+                continue; // Skip concatenation axis
+            }
+            if (input_shape[dim] != reference_shape[dim])
+            {
+                return OperatorExecuteResult::SHAPE_MISMATCH_ERROR;
+            }
+        }
+    }
+
+    if (outputs.empty() || outputs[0] == nullptr)
+    {
+        return OperatorExecuteResult::OUTPUT_TENSOR_ERROR;
+    }
+
+    DeviceType deviceType = device->getType();
+
     switch (deviceType)
     {
     case DeviceType::CPU:
         return CPU_OP::ConcatOperatorImpl::execute(inputs, outputs, attributes);
 #ifdef USE_HIP
     case DeviceType::HIP:
-        return HIP_OP::ConcatOperatorImpl::execute(inputs, outputs, attributes);
+        return HIP_OP::ConcatOperatorImpl::execute(inputs, outputs, attributes, device);
 #endif
     default:
         return OperatorExecuteResult::DEVICE_UNSUPPORTED;

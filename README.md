@@ -1,4 +1,7 @@
-# ONNX.cpp: A simple ONNX engine in Pure C++
+# ONNX.cpp: A simple ONNX engine in HIP
+
+## HIP Implementation for AMD/NVIDIA GPUs
+- It supports GPU inference on AMD/NVIDIA GPUs through HIP. Currently working on operator implementations and optimizations.
 
 ## Overview
 **The primary goal of the repo is to demonstrate how an ONNX model works and to provide a building block for a custom ONNX engine. This library is currently not recommended for production.** For now, maybe.
@@ -49,13 +52,9 @@ int main()
 
     // initialize a tensor
     std::vector<size_t> dims = {1, 3, 640, 640};
-    Tensor input_tensor(TensorDataType::FLOAT32, dims);
-    float *data = new float[1 * 3 * 640 * 640];
-    for (size_t i = 0; i < 1 * 3 * 640 * 640; ++i)
-    {
-        data[i] = 1.0f;
-    }
-    input_tensor.setDataPointer(data, dims);
+    std::vector<float> values(1 * 3 * 640 * 640, 1.0f);
+
+    Tensor input_tensor(TensorDataType::FLOAT32, dims, values, new CpuDevice());
 
     // the inputs should be given as an unordered_map with Tensors
     std::unordered_map<std::string, Tensor> inputs;
@@ -75,11 +74,11 @@ int main()
 ## Future Work
 **There is no optimization at all**. I intend to leave it this way for now so that we can easily understand what each operator does.
 
-### Currently Being Worked on
-- [ ] YOLOv8 example
-- [ ] GPU Version for AMD/NVIDIA GPUs using HIP
+### Features
+- [x] YOLOv8 example (Only the Operators for the model are currently implemented)
+- [x] GPU Version for AMD/NVIDIA GPUs using HIP
 
-### Future Future Work
+### Future Work
 - [ ] Support Phi-3 LLM
 - [ ] Optimizations and off-loading
 - [ ] SYCL implementation for vendor agnostic accelerating

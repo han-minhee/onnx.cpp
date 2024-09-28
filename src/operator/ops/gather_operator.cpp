@@ -76,15 +76,64 @@ std::vector<TensorDataType> GatherOperator::inferOutputDataTypes(const std::vect
 }
 
 OperatorExecuteResult GatherOperator::execute(const std::vector<Tensor> &inputs, std::vector<Tensor *> &outputs,
-                                              const std::unordered_map<std::string, Node::AttributeValue> &attributes, DeviceType deviceType)
+                                              const std::unordered_map<std::string, Node::AttributeValue> &attributes, Device *device)
 {
+    // Check for the required inputs
+    if (inputs.size() != 2)
+    {
+        return OperatorExecuteResult::INPUT_TENSOR_ERROR;
+    }
+
+    // check if inputs[1] is INT64
+    if (inputs[1].getDataType() != TensorDataType::INT64)
+    {
+        return OperatorExecuteResult::INPUT_TENSOR_ERROR;
+    }
+
+    // check if inputs[0] and outputs[0] have the same data type
+    if (inputs[0].getDataType() != outputs[0]->getDataType())
+    {
+        return OperatorExecuteResult::DATA_TYPE_ERROR;
+    }
+
+    if (inputs.size() != 2)
+    {
+        return OperatorExecuteResult::INPUT_TENSOR_ERROR;
+    }
+
+    const Tensor &input = inputs[0];
+    const Tensor &indices = inputs[1];
+
+    int64_t axis = 0;
+    if (attributes.find("axis") != attributes.end())
+    {
+        axis = std::get<int64_t>(attributes.at("axis"));
+    }
+
+    size_t data_rank = input.getDims().size();
+    if (axis < 0)
+    {
+        axis += data_rank;
+    }
+
+    if (axis < 0 || static_cast<size_t>(axis) >= data_rank)
+    {
+        return OperatorExecuteResult::ATTRIBUTE_ERROR;
+    }
+
+    if (outputs.empty() || outputs[0] == nullptr || outputs[0]->getDims().empty())
+    {
+        return OperatorExecuteResult::OUTPUT_TENSOR_ERROR;
+    }
+
+    DeviceType deviceType = device->getType();
     switch (deviceType)
     {
     case DeviceType::CPU:
         return CPU_OP::GatherOperatorImpl::execute(inputs, outputs, attributes);
 #ifdef USE_HIP
     case DeviceType::HIP:
-        return HIP_OP::GatherOperatorImpl::execute(inputs, outputs, attributes);
+        return HIP_OP::GatherOperatorImpl::execute(inputs, outputs, attributes, device);
 #endif
     default:
         return OperatorExecuteResult::DEVICE_UNSUPPORTED;

@@ -4,7 +4,10 @@
 enum class BufferOperationResult
 {
     SUCCESS,
-    FAILURE
+    FAILURE,
+    DEVICE_UNSUPPORTED,
+    DEVICE_MISMATCH,
+    NOT_IMPLEMENTED
 };
 
 enum class TensorDataType
@@ -19,6 +22,14 @@ enum class TensorDataType
 
     /// XXX: Should "half" included in the CPU backend? AVX512 can use float16, but what about non-AVX512 implementations?
     FLOAT16
+};
+
+enum class TensorCompareResult
+{
+    EQUAL,
+    SHAPE_MISMATCH,
+    DATA_TYPE_MISMATCH,
+    DATA_MISMATCH
 };
 
 enum class OperatorType
@@ -57,7 +68,11 @@ enum class OperatorExecuteResult
     UNSUPPORTED_OPERATION,
     MEMORY_ALLOCATION_ERROR,
     UNKNOWN_ERROR,
-    DEVICE_UNSUPPORTED
+    DEVICE_UNSUPPORTED,
+    NOT_IMPLEMENTED
+    #ifdef USE_HIP
+    ,HIP_ERROR
+    #endif
 };
 
 enum class DeviceType

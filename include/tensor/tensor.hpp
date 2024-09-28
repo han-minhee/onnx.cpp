@@ -1,35 +1,68 @@
+// tensor.hpp
 #ifndef TENSOR_HPP
 #define TENSOR_HPP
 
-#include <array>
-#include <variant>
-#include <stdexcept>
-#include <cstddef>
-#include <cstdint>
-#include <cassert>
-#include <memory>
 #include <vector>
+#include <memory>
 
 #include "device/device.hpp"
 #include "tensor/buffer.hpp"
-#include "enums.hpp"
+
+#include "utils.hpp"
 
 class Tensor
 {
 public:
-    Tensor();
-    Tensor(TensorDataType dtype, const std::vector<size_t> &dims);
+    Tensor(Device *device = new CpuDevice());
+    Tensor(TensorDataType dtype, const std::vector<size_t> &dims, Device *device = new CpuDevice());
 
-    const std::vector<size_t> &getDims() const;
-    const std::vector<size_t> &getStrides() const;
+    template <typename T>
+    Tensor(TensorDataType dtype, const std::vector<size_t> &dims, const std::vector<T> &data, Device *device)
+        : data_type_(dtype), num_elements_(calcNumElements(dims)), device_(device)
+    {
+        if (data.size() != num_elements_)
+        {
+            throw std::invalid_argument("Data size does not match tensor dimensions.");
+        }
+
+        // Allocate buffer for the tensor
+        buffer_ = Buffer::create(device, dtype, num_elements_);
+
+        // Set the data into the buffer
+        buffer_->setData(data);
+
+        // Set the dimensions and calculate the strides
+        dimensions_ = dims;
+#ifdef USE_HIP
+        if (device_->getType() == DeviceType::HIP)
+        {
+            // Allocate device memory for dimensions and copy from host
+            hipErrorCheck(hipMalloc(&d_dimensions_, dims.size() * sizeof(size_t)));
+            hipErrorCheck(hipMemcpy(d_dimensions_, dims.data(), dims.size() * sizeof(size_t), hipMemcpyHostToDevice));
+        }
+#endif
+        calculateAndSetStrides(dims);
+    }
+
+    std::vector<size_t> getDims() const;
+    std::vector<size_t> getStrides() const;
+
+#ifdef USE_HIP
+    size_t *getDimsPointer();
+    size_t *getStridesPointer();
+#endif
+
     size_t getNDim() const;
     size_t getNumElements() const;
 
-    void copy_tensor(const Tensor &other);
     void reshape(const std::vector<size_t> &new_dims);
 
-    void setDataType(TensorDataType);
+    void setDataType(TensorDataType dtype);
     TensorDataType getDataType() const;
+
+    void allocateBuffer(TensorDataType dtype, size_t num_elements);
+    std::shared_ptr<Buffer> getBuffer();
+    std::shared_ptr<const Buffer> getBuffer() const;
 
     template <typename T>
     T *data();
@@ -38,56 +71,46 @@ public:
     const T *data() const;
 
     template <typename T>
-    void setData(T *data, size_t size);
-
-    template <typename T>
-    void setDataPointer(T *data, const std::vector<size_t> &dims);
+    void setData(const std::vector<T> &data);
 
     void freeData();
 
     size_t getLinearIndex(const std::vector<int64_t> &indices) const;
-
-    // to string
     std::string toString() const;
 
+    void to(Device *device);
+    Device *getDevice();
+
+    void *getDataPointer();
+    const void *getDataPointer() const;
+
+    void copyFrom(const Tensor &src);
+
+#ifdef USE_HIP
+    size_t *d_getDims() const;
+    size_t *d_getStrides() const;
+#endif
+
 private:
-    TensorDataType data_type;
-    std::vector<size_t> dimensions;
-    std::vector<size_t> strides;
-    size_t num_elements;
+    Device *device_;
+    TensorDataType data_type_;
+    std::vector<size_t> dimensions_;
+    std::vector<size_t> strides_;
 
-    std::variant<
-        std::monostate,
-        float *,
-        double *,
-        int32_t *,
-        int64_t *,
-        int8_t *,
-        uint8_t *>
-        values;
+#ifdef USE_HIP
+    size_t *d_dimensions_;
+    size_t *d_strides_;
 
-    std::vector<size_t> calcStrides(const std::vector<size_t> &dims);
+#endif
+
+    size_t num_elements_;
+
+    std::shared_ptr<Buffer> buffer_;
+
+    void calculateAndSetStrides(const std::vector<size_t> &dims);
     size_t calcNumElements(const std::vector<size_t> &dims);
-    void allocateData(TensorDataType dtype);
 };
 
-Tensor create_tensor(TensorDataType dtype, const std::vector<size_t> &dims, const std::vector<float> &data);
-
-namespace TensorUtils
-{
-    enum class TensorCompareResult
-    {
-        EQUAL,
-        SHAPE_MISMATCH,
-        DATA_TYPE_MISMATCH,
-        DATA_MISMATCH,
-    };
-
-    std::string TensorCompareResultToString(TensorCompareResult result);
-
-    size_t getDataTypeSize(TensorDataType dtype);
-    std::string getDataTypeName(TensorDataType dtype);
-    TensorCompareResult areTensorsEqual(const Tensor &lhs, const Tensor &rhs);
-} // namespace TensorUtils
+Tensor create_tensor(TensorDataType dtype, const std::vector<size_t> &dims, const std::vector<float> &data, Device *device = new CpuDevice());
 
 #endif // TENSOR_HPP

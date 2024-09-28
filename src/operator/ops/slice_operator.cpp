@@ -191,8 +191,57 @@ std::vector<TensorDataType> SliceOperator::inferOutputDataTypes(const std::vecto
 }
 
 OperatorExecuteResult SliceOperator::execute(const std::vector<Tensor> &inputs, std::vector<Tensor *> &outputs,
-                                             const std::unordered_map<std::string, Node::AttributeValue> &attributes, DeviceType deviceType)
+                                             const std::unordered_map<std::string, Node::AttributeValue> &attributes, Device *device)
 {
+
+    // Validate the number of inputs
+    if (inputs.size() < 3 || inputs.size() > 5)
+    {
+        return OperatorExecuteResult::INPUT_TENSOR_ERROR;
+    }
+
+    // Validate the output tensor
+    if (outputs.empty() || outputs[0] == nullptr)
+    {
+        return OperatorExecuteResult::OUTPUT_TENSOR_ERROR;
+    }
+
+    const Tensor &starts_tensor = inputs[1];
+    const Tensor &ends_tensor = inputs[2];
+
+    // Check that starts and ends tensors are 1-dimensional and of the correct data type
+    if (starts_tensor.getDataType() != TensorDataType::INT64 || ends_tensor.getDataType() != TensorDataType::INT64)
+    {
+        return OperatorExecuteResult::DATA_TYPE_ERROR;
+    }
+    if (starts_tensor.getNumElements() != ends_tensor.getNumElements())
+    {
+        return OperatorExecuteResult::SHAPE_MISMATCH_ERROR;
+    }
+    if (starts_tensor.getNDim() != 1 || ends_tensor.getNDim() != 1)
+    {
+        return OperatorExecuteResult::SHAPE_MISMATCH_ERROR;
+    }
+
+    if (inputs.size() >= 4)
+    {
+        const Tensor *axes_tensor = &inputs[3];
+        if (axes_tensor->getDataType() != TensorDataType::INT64 || axes_tensor->getNDim() != 1)
+        {
+            return OperatorExecuteResult::DATA_TYPE_ERROR;
+        }
+    }
+
+    if (inputs.size() == 5)
+    {
+        const Tensor *steps_tensor = &inputs[4];
+        if (steps_tensor->getDataType() != TensorDataType::INT64 || steps_tensor->getNDim() != 1)
+        {
+            return OperatorExecuteResult::DATA_TYPE_ERROR;
+        }
+    }
+
+    DeviceType deviceType = device->getType();
     switch (deviceType)
     {
     case DeviceType::CPU:
@@ -200,7 +249,7 @@ OperatorExecuteResult SliceOperator::execute(const std::vector<Tensor> &inputs, 
 
 #ifdef USE_HIP
     case DeviceType::HIP:
-        return HIP_OP::SliceOperatorImpl::execute(inputs, outputs, attributes);
+        return HIP_OP::SliceOperatorImpl::execute(inputs, outputs, attributes, device);
 #endif
 
     default:

@@ -43,14 +43,11 @@ std::vector<std::vector<size_t>> ShapeOperator::inferOutputShapes(const std::vec
     start = static_cast<int64_t>(std::max(0, std::min(static_cast<int>(start), static_cast<int>(rank))));
     end = static_cast<int64_t>(std::max(0, std::min(static_cast<int>(end), static_cast<int>(rank))));
 
-    // Compute the output shape slice
-    std::vector<size_t> output_shape_slice;
-    for (int i = start; i < end; ++i)
-    {
-        output_shape_slice.push_back(static_cast<int64_t>(input_shape[i]));
-    }
+    // The expected output shape is a single-dimensional tensor with 'length' equal to the number of dimensions between start and end
+    size_t output_length = end - start;
 
-    return {output_shape_slice};
+    // The output should be a vector with a single value: {output_length}
+    return {{output_length}};
 }
 
 std::vector<TensorDataType> ShapeOperator::inferOutputDataTypes(const std::vector<Tensor> &inputs,
@@ -60,8 +57,10 @@ std::vector<TensorDataType> ShapeOperator::inferOutputDataTypes(const std::vecto
 }
 
 OperatorExecuteResult ShapeOperator::execute(const std::vector<Tensor> &inputs, std::vector<Tensor *> &outputs,
-                                             const std::unordered_map<std::string, Node::AttributeValue> &attributes, DeviceType deviceType)
+                                             const std::unordered_map<std::string, Node::AttributeValue> &attributes, Device *device)
 {
+    DeviceType deviceType = device->getType();
+
     switch (deviceType)
     {
     case DeviceType::CPU:
@@ -69,7 +68,7 @@ OperatorExecuteResult ShapeOperator::execute(const std::vector<Tensor> &inputs, 
 
 #ifdef USE_HIP
     case DeviceType::HIP:
-        return HIP_OP::ShapeOperatorImpl::execute(inputs, outputs, attributes);
+        return HIP_OP::ShapeOperatorImpl::execute(inputs, outputs, attributes, device);
 
 #endif
     default:

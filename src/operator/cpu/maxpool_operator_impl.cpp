@@ -5,7 +5,6 @@
 
 namespace CPU_OP
 {
-
     template <typename T>
     OperatorExecuteResult executeMaxPool(const Tensor &X, Tensor *Y,
                                          const std::vector<int64_t> &kernel_shape,
@@ -23,8 +22,14 @@ namespace CPU_OP
             return OperatorExecuteResult::INPUT_TENSOR_ERROR;
         }
 
+        // Ensure Y's buffer is allocated with the correct size and data type
         size_t output_size = Y->getNumElements();
-        T *output_data = new (std::nothrow) T[output_size];
+        if (!Y->data<T>() || Y->getNumElements() != output_size)
+        {
+            Y->allocateBuffer(X.getDataType(), output_size);
+        }
+
+        T *output_data = Y->data<T>();
         if (!output_data)
         {
             return OperatorExecuteResult::MEMORY_ALLOCATION_ERROR;
@@ -66,9 +71,6 @@ namespace CPU_OP
             }
         }
 
-        Y->setDataType(X.getDataType());
-        Y->setDataPointer<T>(output_data, {N, C, output_spatial_shape[0], output_spatial_shape[1]});
-
         return OperatorExecuteResult::SUCCESS;
     }
 
@@ -76,11 +78,6 @@ namespace CPU_OP
         const std::vector<Tensor> &inputs, std::vector<Tensor *> &outputs,
         const std::unordered_map<std::string, Node::AttributeValue> &attributes)
     {
-        if (inputs.size() < 1 || outputs.empty() || outputs[0] == nullptr)
-        {
-            return OperatorExecuteResult::INPUT_TENSOR_ERROR;
-        }
-
         const Tensor &X = inputs.at(0);
         Tensor *Y = outputs[0];
 
@@ -115,7 +112,6 @@ namespace CPU_OP
                 strides = std::get<std::vector<int64_t>>(value);
         }
 
-        // Add this block to ensure the vectors have correct sizes
         kernel_shape.resize(spatial_rank, 1);
         pads.resize(spatial_rank * 2, 0);
         strides.resize(spatial_rank, 1);
@@ -123,13 +119,17 @@ namespace CPU_OP
 
         std::vector<size_t> input_spatial_shape(X_dims.begin() + 2, X_dims.end());
 
-        // get the output shape
         std::vector<size_t> output_spatial_shape = Y->getDims();
         if (output_spatial_shape.empty())
         {
             return OperatorExecuteResult::SHAPE_MISMATCH_ERROR;
         }
         output_spatial_shape.erase(output_spatial_shape.begin(), output_spatial_shape.begin() + 2);
+
+        // Ensure Y is reshaped correctly before passing to executeMaxPool
+        Y->reshape({N, C, output_spatial_shape[0], output_spatial_shape[1]});
+        Y->setDataType(X.getDataType());
+        Y->allocateBuffer(X.getDataType(), Y->getNumElements());
 
         switch (X.getDataType())
         {

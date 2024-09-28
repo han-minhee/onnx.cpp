@@ -120,8 +120,30 @@ OperatorExecuteResult ReshapeOperator::execute(
     const std::vector<Tensor> &inputs,
     std::vector<Tensor *> &outputs,
     const std::unordered_map<std::string, Node::AttributeValue> &attributes,
-    DeviceType deviceType)
+    Device *device)
 {
+
+    if (inputs.size() != 2)
+    {
+        return OperatorExecuteResult::INPUT_TENSOR_ERROR;
+    }
+
+    if (outputs.empty() || outputs[0] == nullptr)
+    {
+        return OperatorExecuteResult::OUTPUT_TENSOR_ERROR;
+    }
+
+    const Tensor &input_tensor = inputs[0];
+    const Tensor &shape_tensor = inputs[1];
+    Tensor *output_tensor = outputs[0];
+
+    if (shape_tensor.getDataType() != TensorDataType::INT64 || shape_tensor.getNDim() != 1)
+    {
+        return OperatorExecuteResult::DATA_TYPE_ERROR;
+    }
+
+    DeviceType deviceType = device->getType();
+
     switch (deviceType)
     {
     case DeviceType::CPU:
@@ -129,7 +151,7 @@ OperatorExecuteResult ReshapeOperator::execute(
 
 #ifdef USE_HIP
     case DeviceType::HIP:
-        return HIP_OP::ReshapeOperatorImpl::execute(inputs, outputs, attributes);
+        return HIP_OP::ReshapeOperatorImpl::execute(inputs, outputs, attributes, device);
 
 #endif
     default:

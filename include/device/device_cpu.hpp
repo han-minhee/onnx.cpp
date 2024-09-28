@@ -1,3 +1,6 @@
+#ifndef DEVICE_CPU_HPP
+#define DEVICE_CPU_HPP
+
 #include "device/device.hpp"
 #include <string>
 
@@ -14,4 +17,16 @@ public:
         // std::ifstream cpuinfo("/proc/cpuinfo");
         return "CPU";
     }
+
+    int getDeviceIndex() const override
+    {
+        return 0;
+    }
+
+    void setDeviceIndex(int index) override
+    {
+        // Do nothing
+    }
 };
+
+#endif // DEVICE_CPU_HPP

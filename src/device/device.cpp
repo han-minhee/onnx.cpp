@@ -1,6 +1,21 @@
 #include "device/device.hpp"
 #include <string>
 
+DeviceType Device::getType() const
+{
+    return DeviceType::CPU; // Default implementation or throw an exception
+}
+
+int Device::getDeviceIndex() const
+{
+    return 0; // Default implementation or throw an exception
+}
+
+void Device::setDeviceIndex(int index)
+{
+    // Default implementation or throw an exception
+}
+
 std::string DeviceUtils::DeviceTypeToString(DeviceType type)
 {
     switch (type)

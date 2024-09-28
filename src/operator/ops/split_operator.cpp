@@ -9,7 +9,7 @@ std::vector<std::vector<size_t>> SplitOperator::inferOutputShapes(
 
     if (inputs.empty())
     {
-        throw std::invalid_argument("1");
+        return {};
     }
 
     const Tensor &input = inputs[0];
@@ -28,7 +28,8 @@ std::vector<std::vector<size_t>> SplitOperator::inferOutputShapes(
     }
     if (axis < 0 || static_cast<size_t>(axis) >= rank)
     {
-        throw std::invalid_argument("2");
+
+        return {};
     }
 
     size_t dim_at_axis = input_shape[axis];
@@ -37,11 +38,6 @@ std::vector<std::vector<size_t>> SplitOperator::inferOutputShapes(
     if (inputs.size() == 2)
     {
         const Tensor &split_tensor = inputs[1];
-        if (split_tensor.getDataType() != TensorDataType::INT64)
-        {
-            throw std::invalid_argument("3");
-        }
-
         const int64_t *split_data = split_tensor.data<int64_t>();
         size_t num_splits = split_tensor.getNumElements();
         split_sizes.resize(num_splits);
@@ -60,7 +56,7 @@ std::vector<std::vector<size_t>> SplitOperator::inferOutputShapes(
 
         if (total_size != dim_at_axis)
         {
-            throw std::invalid_argument("5");
+            return {};
         }
     }
     else if (attributes.count("num_outputs"))
@@ -69,7 +65,7 @@ std::vector<std::vector<size_t>> SplitOperator::inferOutputShapes(
         int64_t num_outputs = std::get<int64_t>(attributes.at("num_outputs"));
         if (num_outputs <= 0)
         {
-            throw std::invalid_argument("6");
+            return {};
         }
 
         split_sizes.resize(num_outputs, dim_at_axis / num_outputs);
@@ -81,7 +77,7 @@ std::vector<std::vector<size_t>> SplitOperator::inferOutputShapes(
     }
     else
     {
-        throw std::invalid_argument("7");
+        return {};
     }
 
     std::vector<std::vector<size_t>> output_shapes(split_sizes.size(), input_shape);
@@ -116,8 +112,19 @@ std::vector<TensorDataType> SplitOperator::inferOutputDataTypes(const std::vecto
 }
 
 OperatorExecuteResult SplitOperator::execute(const std::vector<Tensor> &inputs, std::vector<Tensor *> &outputs,
-                                             const std::unordered_map<std::string, Node::AttributeValue> &attributes, DeviceType deviceType)
+                                             const std::unordered_map<std::string, Node::AttributeValue> &attributes, Device *device)
 {
+    if (inputs.empty())
+    {
+        return OperatorExecuteResult::INPUT_TENSOR_ERROR;
+    }
+
+    if (outputs.empty())
+    {
+        return OperatorExecuteResult::OUTPUT_TENSOR_ERROR;
+    }
+
+    DeviceType deviceType = device->getType();
     switch (deviceType)
     {
     case DeviceType::CPU:
@@ -125,7 +132,7 @@ OperatorExecuteResult SplitOperator::execute(const std::vector<Tensor> &inputs, 
 
 #ifdef USE_HIP
     case DeviceType::HIP:
-        return HIP_OP::SplitOperatorImpl::execute(inputs, outputs, attributes);
+        return HIP_OP::SplitOperatorImpl::execute(inputs, outputs, attributes, device);
 #endif
 
     default:

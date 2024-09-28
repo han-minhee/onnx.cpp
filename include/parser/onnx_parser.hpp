@@ -7,7 +7,7 @@
 #include "onnx.pb.h" // Include the generated protobuf header
 
 TensorDataType convertONNXDataType(int onnx_data_type);
-Tensor parseONNXTensor(const onnx::TensorProto &onnx_tensor);
+Tensor parseONNXTensor(const onnx::TensorProto &onnx_tensor, Device *device);
 Graph parseONNX(const std::string &file_path);
 
 #endif // ONNX_PARSER_HPP

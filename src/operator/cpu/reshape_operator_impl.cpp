@@ -3,46 +3,15 @@
 
 namespace CPU_OP
 {
-
-    OperatorExecuteResult ReshapeOperatorImpl::execute(const std::vector<Tensor> &inputs, std::vector<Tensor *> &outputs,
-                                                   const std::unordered_map<std::string, Node::AttributeValue> &attributes)
+    template <typename T>
+    OperatorExecuteResult executeReshape(const Tensor &input_tensor, const Tensor &shape_tensor, Tensor *output_tensor,
+                                         bool allowzero)
     {
-        // Validate the number of inputs
-        if (inputs.size() != 2)
-        {
-            return OperatorExecuteResult::INPUT_TENSOR_ERROR;
-        }
-
-        // Validate the output tensor
-        if (outputs.empty() || outputs[0] == nullptr)
-        {
-            return OperatorExecuteResult::OUTPUT_TENSOR_ERROR;
-        }
-
-        const Tensor &input_tensor = inputs[0];
-        const Tensor &shape_tensor = inputs[1];
-        Tensor *output_tensor = outputs[0];
-
-        // Check that the shape tensor is a 1-dimensional tensor of int64 type
-        if (shape_tensor.getDataType() != TensorDataType::INT64 || shape_tensor.getNDim() != 1)
-        {
-            return OperatorExecuteResult::DATA_TYPE_ERROR;
-        }
-
         const int64_t *shape_data = shape_tensor.data<int64_t>();
         size_t shape_size = shape_tensor.getNumElements();
 
-        // Extract the "allowzero" attribute (default is 0)
-        bool allowzero = false;
-        if (attributes.find("allowzero") != attributes.end())
-        {
-            allowzero = static_cast<int64_t>(std::get<int64_t>(attributes.at("allowzero"))) != 0;
-        }
-
-        // Calculate the total number of elements in the input tensor
         size_t input_num_elements = input_tensor.getNumElements();
 
-        // Determine the target shape and handle -1 and 0 cases
         std::vector<size_t> output_shape(shape_size);
         size_t inferred_dimension = 1;
         int64_t minus_one_pos = -1;
@@ -55,7 +24,7 @@ namespace CPU_OP
             {
                 if (minus_one_pos != -1)
                 {
-                    return OperatorExecuteResult::SHAPE_MISMATCH_ERROR; // More than one -1 in shape
+                    return OperatorExecuteResult::SHAPE_MISMATCH_ERROR;
                 }
                 minus_one_pos = static_cast<int64_t>(i);
             }
@@ -67,7 +36,7 @@ namespace CPU_OP
                 }
                 else
                 {
-                    output_shape[i] = input_tensor.getDims()[i]; // Copy the corresponding input dimension
+                    output_shape[i] = input_tensor.getDims()[i];
                 }
             }
             else if (dim > 0)
@@ -77,21 +46,19 @@ namespace CPU_OP
             }
             else
             {
-                return OperatorExecuteResult::SHAPE_MISMATCH_ERROR; // Invalid dimension value
+                return OperatorExecuteResult::SHAPE_MISMATCH_ERROR;
             }
         }
 
-        // Infer the dimension if -1 was provided
         if (minus_one_pos != -1)
         {
             if (input_num_elements % inferred_dimension != 0)
             {
-                return OperatorExecuteResult::SHAPE_MISMATCH_ERROR; // Cannot infer the shape
+                return OperatorExecuteResult::SHAPE_MISMATCH_ERROR;
             }
             output_shape[minus_one_pos] = input_num_elements / inferred_dimension;
         }
 
-        // Validate that the reshaped tensor has the same total number of elements as the input tensor
         size_t output_num_elements = 1;
         for (size_t dim : output_shape)
         {
@@ -100,24 +67,74 @@ namespace CPU_OP
 
         if (output_num_elements != input_num_elements)
         {
-            return OperatorExecuteResult::SHAPE_MISMATCH_ERROR; // Number of elements mismatch
+            return OperatorExecuteResult::SHAPE_MISMATCH_ERROR;
         }
 
-        // Allocate memory for the reshaped tensor and copy data from the input tensor
-        float *output_data = new (std::nothrow) float[input_num_elements];
-        if (!output_data)
+        output_tensor->reshape(output_shape);
+        output_tensor->setDataType(input_tensor.getDataType());
+
+        if (!output_tensor->data<T>() || output_tensor->getNumElements() != input_num_elements)
+        {
+            output_tensor->allocateBuffer(input_tensor.getDataType(), input_num_elements);
+        }
+
+        const T *input_data = input_tensor.data<T>();
+        T *output_data = output_tensor->data<T>();
+        if (!input_data || !output_data)
         {
             return OperatorExecuteResult::MEMORY_ALLOCATION_ERROR;
         }
 
-        const float *input_data = input_tensor.data<float>();
         std::copy(input_data, input_data + input_num_elements, output_data);
-
-        // Set the data pointer and shape of the output tensor
-        output_tensor->setDataType(input_tensor.getDataType());
-        output_tensor->setDataPointer<float>(output_data, output_shape);
 
         return OperatorExecuteResult::SUCCESS;
     }
 
+    OperatorExecuteResult ReshapeOperatorImpl::execute(const std::vector<Tensor> &inputs, std::vector<Tensor *> &outputs,
+                                                       const std::unordered_map<std::string, Node::AttributeValue> &attributes)
+    {
+
+        if (inputs.size() != 2)
+        {
+            return OperatorExecuteResult::INPUT_TENSOR_ERROR;
+        }
+
+        if (outputs.empty() || outputs[0] == nullptr)
+        {
+            return OperatorExecuteResult::OUTPUT_TENSOR_ERROR;
+        }
+
+        const Tensor &input_tensor = inputs[0];
+        const Tensor &shape_tensor = inputs[1];
+        Tensor *output_tensor = outputs[0];
+
+        if (shape_tensor.getDataType() != TensorDataType::INT64 || shape_tensor.getNDim() != 1)
+        {
+            return OperatorExecuteResult::DATA_TYPE_ERROR;
+        }
+
+        bool allowzero = false;
+        if (attributes.find("allowzero") != attributes.end())
+        {
+            allowzero = static_cast<int64_t>(std::get<int64_t>(attributes.at("allowzero"))) != 0;
+        }
+
+        switch (input_tensor.getDataType())
+        {
+        case TensorDataType::FLOAT32:
+            return executeReshape<float>(input_tensor, shape_tensor, output_tensor, allowzero);
+        case TensorDataType::FLOAT64:
+            return executeReshape<double>(input_tensor, shape_tensor, output_tensor, allowzero);
+        case TensorDataType::INT32:
+            return executeReshape<int32_t>(input_tensor, shape_tensor, output_tensor, allowzero);
+        case TensorDataType::INT64:
+            return executeReshape<int64_t>(input_tensor, shape_tensor, output_tensor, allowzero);
+        case TensorDataType::INT8:
+            return executeReshape<int8_t>(input_tensor, shape_tensor, output_tensor, allowzero);
+        case TensorDataType::UINT8:
+            return executeReshape<uint8_t>(input_tensor, shape_tensor, output_tensor, allowzero);
+        default:
+            return OperatorExecuteResult::UNSUPPORTED_OPERATION;
+        }
+    }
 }

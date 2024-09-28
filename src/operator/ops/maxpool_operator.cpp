@@ -120,76 +120,18 @@ std::vector<TensorDataType> MaxPoolOperator::inferOutputDataTypes(
 
     return {inputs.at(0).getDataType()};
 }
-template <typename T>
-OperatorExecuteResult executeMaxPool(const Tensor &X, Tensor *Y,
-                                     const std::vector<int64_t> &kernel_shape,
-                                     const std::vector<int64_t> &pads,
-                                     const std::vector<int64_t> &strides,
-                                     const std::vector<int64_t> &dilations,
-                                     size_t N, size_t C,
-                                     const std::vector<size_t> &input_spatial_shape,
-                                     const std::vector<size_t> &output_spatial_shape,
-                                     size_t spatial_rank)
+
+OperatorExecuteResult MaxPoolOperator::execute(
+    const std::vector<Tensor> &inputs, std::vector<Tensor *> &outputs,
+    const std::unordered_map<std::string, Node::AttributeValue> &attributes, Device *device)
 {
-    const T *input_data = X.data<T>();
-    if (!input_data)
+
+    if (inputs.size() < 1 || outputs.empty() || outputs[0] == nullptr)
     {
         return OperatorExecuteResult::INPUT_TENSOR_ERROR;
     }
 
-    size_t output_size = Y->getNumElements();
-    T *output_data = new (std::nothrow) T[output_size];
-    if (!output_data)
-    {
-        return OperatorExecuteResult::MEMORY_ALLOCATION_ERROR;
-    }
-
-    for (size_t n = 0; n < N; ++n)
-    {
-        for (size_t c = 0; c < C; ++c)
-        {
-            for (size_t out_h = 0; out_h < output_spatial_shape[0]; ++out_h)
-            {
-                for (size_t out_w = 0; out_w < output_spatial_shape[1]; ++out_w)
-                {
-                    T max_val = std::numeric_limits<T>::lowest();
-
-                    for (size_t kh = 0; kh < kernel_shape[0]; ++kh)
-                    {
-                        for (size_t kw = 0; kw < kernel_shape[1]; ++kw)
-                        {
-                            int h_in = static_cast<int>(out_h * strides[0] + kh * dilations[0] - pads[0]);
-                            int w_in = static_cast<int>(out_w * strides[1] + kw * dilations[1] - pads[1]);
-
-                            if (h_in >= 0 && h_in < static_cast<int>(input_spatial_shape[0]) &&
-                                w_in >= 0 && w_in < static_cast<int>(input_spatial_shape[1]))
-                            {
-                                size_t input_idx = n * C * input_spatial_shape[0] * input_spatial_shape[1] +
-                                                   c * input_spatial_shape[0] * input_spatial_shape[1] +
-                                                   h_in * input_spatial_shape[1] + w_in;
-                                max_val = std::max(max_val, input_data[input_idx]);
-                            }
-                        }
-                    }
-                    size_t output_idx = n * C * output_spatial_shape[0] * output_spatial_shape[1] +
-                                        c * output_spatial_shape[0] * output_spatial_shape[1] +
-                                        out_h * output_spatial_shape[1] + out_w;
-                    output_data[output_idx] = max_val;
-                }
-            }
-        }
-    }
-
-    Y->setDataType(X.getDataType());
-    Y->setDataPointer<T>(output_data, {N, C, output_spatial_shape[0], output_spatial_shape[1]});
-
-    return OperatorExecuteResult::SUCCESS;
-}
-
-OperatorExecuteResult MaxPoolOperator::execute(
-    const std::vector<Tensor> &inputs, std::vector<Tensor *> &outputs,
-    const std::unordered_map<std::string, Node::AttributeValue> &attributes, DeviceType deviceType)
-{
+    DeviceType deviceType = device->getType();
     switch (deviceType)
     {
     case DeviceType::CPU:
@@ -197,7 +139,7 @@ OperatorExecuteResult MaxPoolOperator::execute(
 
 #ifdef USE_HIP
     case DeviceType::HIP:
-        return HIP_OP::MaxPoolOperatorImpl::execute(inputs, outputs, attributes);
+        return HIP_OP::MaxPoolOperatorImpl::execute(inputs, outputs, attributes, device);
 #endif
 
     default:

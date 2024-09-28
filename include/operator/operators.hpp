@@ -4,16 +4,16 @@
 #include "operator/operator.hpp"
 #include "device/device.hpp"
 
-#define DEFINE_OPERATOR_STRUCT(BaseName)                                                                                                                    \
-  struct BaseName##Operator                                                                                                                                 \
-  {                                                                                                                                                         \
-    static OperatorExecuteResult execute(const std::vector<Tensor> &inputs,                                                                                 \
-                                         std::vector<Tensor *> &outputs,                                                                                    \
-                                         const std::unordered_map<std::string, Node::AttributeValue> &attributes, DeviceType deviceType = DeviceType::CPU); \
-    static std::vector<std::vector<size_t>> inferOutputShapes(const std::vector<Tensor> &inputs,                                                            \
-                                                              const std::unordered_map<std::string, Node::AttributeValue> &attributes);                     \
-    static std::vector<TensorDataType> inferOutputDataTypes(const std::vector<Tensor> &inputs,                                                              \
-                                                            const std::unordered_map<std::string, Node::AttributeValue> &attributes);                       \
+#define DEFINE_OPERATOR_STRUCT(BaseName)                                                                                                \
+  struct BaseName##Operator                                                                                                             \
+  {                                                                                                                                     \
+    static OperatorExecuteResult execute(const std::vector<Tensor> &inputs,                                                             \
+                                         std::vector<Tensor *> &outputs,                                                                \
+                                         const std::unordered_map<std::string, Node::AttributeValue> &attributes, Device *device);      \
+    static std::vector<std::vector<size_t>> inferOutputShapes(const std::vector<Tensor> &inputs,                                        \
+                                                              const std::unordered_map<std::string, Node::AttributeValue> &attributes); \
+    static std::vector<TensorDataType> inferOutputDataTypes(const std::vector<Tensor> &inputs,                                          \
+                                                            const std::unordered_map<std::string, Node::AttributeValue> &attributes);   \
   };
 
 #define DEFINE_CPU_OPERATOR_IMPL(BaseName)                                                                           \
@@ -27,15 +27,15 @@
     };                                                                                                               \
   }
 
-#define DEFINE_HIP_OPERATOR_IMPL(BaseName)                                                                           \
-  namespace HIP_OP                                                                                                   \
-  {                                                                                                                  \
-    struct BaseName##OperatorImpl                                                                                    \
-    {                                                                                                                \
-      static OperatorExecuteResult execute(const std::vector<Tensor> &inputs,                                        \
-                                           std::vector<Tensor *> &outputs,                                           \
-                                           const std::unordered_map<std::string, Node::AttributeValue> &attributes); \
-    };                                                                                                               \
+#define DEFINE_HIP_OPERATOR_IMPL(BaseName)                                                                                           \
+  namespace HIP_OP                                                                                                                   \
+  {                                                                                                                                  \
+    struct BaseName##OperatorImpl                                                                                                    \
+    {                                                                                                                                \
+      static OperatorExecuteResult execute(const std::vector<Tensor> &inputs,                                                        \
+                                           std::vector<Tensor *> &outputs,                                                           \
+                                           const std::unordered_map<std::string, Node::AttributeValue> &attributes, Device *device); \
+    };                                                                                                                               \
   }
 
 DEFINE_OPERATOR_STRUCT(Add)
@@ -77,24 +77,25 @@ DEFINE_CPU_OPERATOR_IMPL(Resize)
 DEFINE_CPU_OPERATOR_IMPL(MaxPool)
 
 #ifdef USE_HIP
-DEFINE_HIP_OPERATOR_IMPL(Conv)
-DEFINE_HIP_OPERATOR_IMPL(Constant)
 DEFINE_HIP_OPERATOR_IMPL(Add)
-DEFINE_HIP_OPERATOR_IMPL(Sub)
-DEFINE_HIP_OPERATOR_IMPL(Reshape)
-DEFINE_HIP_OPERATOR_IMPL(Split)
 DEFINE_HIP_OPERATOR_IMPL(Concat)
-DEFINE_HIP_OPERATOR_IMPL(MatMul)
+DEFINE_HIP_OPERATOR_IMPL(Constant)
+DEFINE_HIP_OPERATOR_IMPL(Conv)
 DEFINE_HIP_OPERATOR_IMPL(Div)
+DEFINE_HIP_OPERATOR_IMPL(Gather)
+DEFINE_HIP_OPERATOR_IMPL(MatMul)
+DEFINE_HIP_OPERATOR_IMPL(MaxPool)
 DEFINE_HIP_OPERATOR_IMPL(Mul)
+DEFINE_HIP_OPERATOR_IMPL(Reshape)
+DEFINE_HIP_OPERATOR_IMPL(Resize)
+DEFINE_HIP_OPERATOR_IMPL(Shape)
 DEFINE_HIP_OPERATOR_IMPL(Sigmoid)
 DEFINE_HIP_OPERATOR_IMPL(Slice)
-DEFINE_HIP_OPERATOR_IMPL(Gather)
-DEFINE_HIP_OPERATOR_IMPL(Shape)
 DEFINE_HIP_OPERATOR_IMPL(Softmax)
+DEFINE_HIP_OPERATOR_IMPL(Split)
+DEFINE_HIP_OPERATOR_IMPL(Sub)
 DEFINE_HIP_OPERATOR_IMPL(Transpose)
-DEFINE_HIP_OPERATOR_IMPL(Resize)
-DEFINE_HIP_OPERATOR_IMPL(MaxPool)
+
 #endif
 
 #endif
