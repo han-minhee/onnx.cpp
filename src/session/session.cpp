@@ -18,7 +18,7 @@
 #include "tensor/tensor_utils.hpp"
 #include "enums.hpp"
 
-Session::Session(const std::string &onnx_file_path, SessionConfig config = SessionConfig())
+Session::Session(const std::string &onnx_file_path, SessionConfig config)
 {
     hostDevice = new CpuDevice();
     sessionConfig = config;

@@ -14,169 +14,176 @@ namespace HIP_OP
 {
 
     template <typename T>
-    __global__ void conv_kernel(const T *__restrict__ input_data, const size_t *__restrict__ input_dims, const size_t *__restrict__ input_strides,
-                                const T *__restrict__ filter_data, const size_t *__restrict__ filter_dims, const size_t *__restrict__ filter_strides,
-                                T *__restrict__ output_data, const size_t *__restrict__ output_dims, const size_t *__restrict__ output_strides,
-                                size_t num_elements, size_t input_ndims, size_t filter_ndims, size_t output_ndims,
-                                int stride_h, int stride_w, int pad_h, int pad_w, int dilation_h, int dilation_w, int group)
+    __global__ void conv_kernel(const T *input_data, const T *weight_data, const T *bias_data, T *output_data,
+                                int64_t group, size_t N, size_t C, size_t M, size_t H_out, size_t W_out,
+                                size_t kH, size_t kW, size_t H, size_t W_in,
+                                size_t padH, size_t padW, size_t strideH, size_t strideW,
+                                size_t dilationH, size_t dilationW)
     {
-        size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
-        if (idx >= num_elements)
+        // Calculate global indices
+        int w_out = blockIdx.x * blockDim.x + threadIdx.x; // output width index
+        int h_out = blockIdx.y * blockDim.y + threadIdx.y; // output height index
+        int m = blockIdx.z % (M / group);                  // output channel within the group
+        int n = blockIdx.z / (M / group);                  // batch index
+
+        // Boundary check
+        if (n >= N || m >= (M / group) || h_out >= H_out || w_out >= W_out)
             return;
 
-        size_t output_indices[MAX_DIMS];
-        size_t tmp = idx;
-        for (int i = output_ndims - 1; i >= 0; --i)
+        int g = blockIdx.z / (M / group); // Compute group index
+
+        // Initialize the sum
+        T sum = 0;
+
+        // Perform convolution for this output element
+        for (size_t c = 0; c < C / group; ++c) // Input channels per group
         {
-            output_indices[i] = tmp % output_dims[i];
-            tmp /= output_dims[i];
-        }
-
-        // Calculate the starting position for the convolution
-        int out_h = output_indices[output_ndims - 2];
-        int out_w = output_indices[output_ndims - 1];
-
-        int in_h_start = out_h * stride_h - pad_h;
-        int in_w_start = out_w * stride_w - pad_w;
-
-        // Initialize the output value
-        T output_val = 0;
-
-        // Determine the input and output channels based on groups
-        int out_channel = output_indices[1];
-        int input_channel_start = (out_channel / (filter_dims[0] / group)) * (filter_dims[1]);
-
-        // Perform the convolution operation
-        for (size_t c = 0; c < filter_dims[1]; ++c)
-        {
-            for (size_t kh = 0; kh < filter_dims[2]; ++kh)
+            for (size_t kh = 0; kh < kH; ++kh) // Kernel height
             {
-                for (size_t kw = 0; kw < filter_dims[3]; ++kw)
+                for (size_t kw = 0; kw < kW; ++kw) // Kernel width
                 {
-                    int in_h = in_h_start + kh * dilation_h;
-                    int in_w = in_w_start + kw * dilation_w;
+                    int h_in = h_out * strideH + kh * dilationH - padH;
+                    int w_in = w_out * strideW + kw * dilationW - padW;
 
-                    // Check for boundary conditions
-                    if (in_h >= 0 && in_h < input_dims[input_ndims - 2] &&
-                        in_w >= 0 && in_w < input_dims[input_ndims - 1])
+                    if (h_in >= 0 && h_in < H && w_in >= 0 && w_in < W_in) // Input boundary check
                     {
-                        size_t input_idx = 0;
-                        input_idx += output_indices[0] * input_strides[0];         // Batch dimension
-                        input_idx += (input_channel_start + c) * input_strides[1]; // Channel dimension adjusted for group
-                        input_idx += in_h * input_strides[input_ndims - 2];
-                        input_idx += in_w * input_strides[input_ndims - 1];
-
-                        size_t filter_idx = 0;
-                        filter_idx += out_channel * filter_strides[0]; // Output channel
-                        filter_idx += c * filter_strides[1];
-                        filter_idx += kh * filter_strides[2];
-                        filter_idx += kw * filter_strides[3];
-
-                        output_val += input_data[input_idx] * filter_data[filter_idx];
+                        size_t input_idx = n * (C * H * W_in) + (g * C / group + c) * (H * W_in) + h_in * W_in + w_in;
+                        size_t weight_idx = (g * M / group + m) * (C / group * kH * kW) + c * (kH * kW) + kh * kW + kw;
+                        sum += input_data[input_idx] * weight_data[weight_idx];
                     }
                 }
             }
         }
 
-        // Set the computed value to the output
-        output_data[idx] = output_val;
+        // Add bias if available
+        if (bias_data)
+        {
+            sum += bias_data[g * M / group + m];
+        }
+
+        // Compute the output index
+        size_t output_idx = n * (M * H_out * W_out) + (g * M / group + m) * (H_out * W_out) + h_out * W_out + w_out;
+        output_data[output_idx] = sum;
+    }
+
+    template <typename T>
+    OperatorExecuteResult executeConv(const Tensor &X, const Tensor &W, const Tensor *B, Tensor *Y,
+                                      const std::vector<int64_t> &pads, const std::vector<int64_t> &strides,
+                                      const std::vector<int64_t> &dilations, int64_t group, size_t N, size_t C,
+                                      size_t H, size_t W_in, size_t M, size_t kH, size_t kW, size_t H_out, size_t W_out)
+    {
+        const T *input_data = X.data<T>();
+        const T *weight_data = W.data<T>();
+
+        const T *bias_data = B ? B->data<T>() : nullptr;
+
+        T *output_data = Y->data<T>();
+
+        // Zero-initialize output data
+        hipErrorCheck(hipMemset(output_data, 0, N * M * H_out * W_out * sizeof(T)));
+
+        // Calculate grid and block dimensions
+        // Set the block dimensions (typically 16x16 threads per block for 2D data)
+        dim3 blockDim(16, 16);
+
+        // Calculate the number of blocks needed in the X and Y dimensions
+        dim3 gridDim((W_out + blockDim.x - 1) / blockDim.x,
+                     (H_out + blockDim.y - 1) / blockDim.y,
+                     N * (M / group)); // Combining N and M/group in the Z dimension
+
+        // Launch the kernel
+        hipKernelLaunchCheck(hipLaunchKernelGGL(conv_kernel<T>, gridDim, blockDim, 0, 0,
+                                                input_data, weight_data, bias_data, output_data,
+                                                group, N, C, M, H_out, W_out, kH, kW, H, W_in,
+                                                pads[0], pads[1],
+                                                strides[0], strides[1],
+                                                dilations[0], dilations[1]));
+
+        return OperatorExecuteResult::SUCCESS;
     }
 
     OperatorExecuteResult ConvOperatorImpl::execute(const std::vector<Tensor> &inputs, std::vector<Tensor *> &outputs,
                                                     const std::unordered_map<std::string, Node::AttributeValue> &attributes, Device *device)
     {
-        const Tensor &input = inputs[0];
-        const Tensor &filter = inputs[1];
-        Tensor *output = outputs[0];
+        const Tensor &X = inputs.at(0);
+        const Tensor &W = inputs.at(1);
 
-        // Extract attributes with default values
-        std::vector<int64_t> pads = {0, 0, 0, 0};
-        std::vector<int64_t> strides = {1, 1};
+        bool has_bias = inputs.size() == 3;
+        const Tensor *B = has_bias ? &inputs.at(2) : nullptr;
+
+        if (outputs.empty() || outputs[0] == nullptr)
+        {
+            return OperatorExecuteResult::OUTPUT_TENSOR_ERROR;
+        }
+
+        const std::vector<size_t> &X_dims = X.getDims(); // (N, C, H, W)
+        const std::vector<size_t> &W_dims = W.getDims(); // (M, C/group, kH, kW)
+
+        // Check dimensions
+        if (X_dims.size() != 4 || W_dims.size() != 4)
+        {
+            return OperatorExecuteResult::SHAPE_MISMATCH_ERROR; // supports 4D tensors
+        }
+
+        // Get attributes with defaults
+        std::string auto_pad = "NOTSET";
         std::vector<int64_t> dilations = {1, 1};
         int64_t group = 1;
+        std::vector<int64_t> kernel_shape = {static_cast<int>(W_dims[2]), static_cast<int>(W_dims[3])}; // (kH, kW)
+        std::vector<int64_t> pads = {0, 0, 0, 0};                                                       // (padH_begin, padW_begin, padH_end, padW_end)
+        std::vector<int64_t> strides = {1, 1};
 
         for (const auto &[key, value] : attributes)
         {
-            if (key == "pads")
-                pads = std::get<std::vector<int64_t>>(value);
-            else if (key == "strides")
-                strides = std::get<std::vector<int64_t>>(value);
+            if (key == "auto_pad")
+                auto_pad = std::get<std::string>(value);
             else if (key == "dilations")
                 dilations = std::get<std::vector<int64_t>>(value);
             else if (key == "group")
                 group = std::get<int64_t>(value);
+            else if (key == "kernel_shape")
+                kernel_shape = std::get<std::vector<int64_t>>(value);
+            else if (key == "pads")
+                pads = std::get<std::vector<int64_t>>(value);
+            else if (key == "strides")
+                strides = std::get<std::vector<int64_t>>(value);
         }
 
-        TensorDataType dtype = input.getDataType();
-        size_t num_elements_output = output->getNumElements();
+        size_t N = X_dims[0], C = X_dims[1], H = X_dims[2], W_in = X_dims[3];
+        size_t M = W_dims[0], kH = kernel_shape[0], kW = kernel_shape[1];
 
-        const void *input_data = input.getBuffer()->getDataPointer();
-        const void *filter_data = filter.getBuffer()->getDataPointer();
-        void *output_data = output->getBuffer()->getDataPointer();
+        if (kH > H + pads[0] + pads[2] || kW > W_in + pads[1] + pads[3])
+        {
+            return OperatorExecuteResult::SHAPE_MISMATCH_ERROR; // Invalid kernel size
+        }
 
-        const auto &input_dims = input.getDims();
-        const auto &filter_dims = filter.getDims();
-        const auto &output_dims = output->getDims();
-        const auto &input_strides = input.getStrides();
-        const auto &filter_strides = filter.getStrides();
-        const auto &output_strides = output->getStrides();
+        if (dilations.size() != 2 || pads.size() != 4 || strides.size() != 2)
+        {
+            return OperatorExecuteResult::ATTRIBUTE_ERROR;
+        }
 
-        size_t input_ndims = input_dims.size();
-        size_t filter_ndims = filter_dims.size();
-        size_t output_ndims = output_dims.size();
+        size_t H_out = static_cast<size_t>(std::floor((H + pads[0] + pads[2] - (kH - 1) * dilations[0] - 1) / static_cast<size_t>(strides[0]) + 1));
+        size_t W_out = static_cast<size_t>(std::floor((W_in + pads[1] + pads[3] - (kW - 1) * dilations[1] - 1) / static_cast<size_t>(strides[1]) + 1));
 
-        size_t *d_input_dims = input.d_getDims();
-        size_t *d_filter_dims = filter.d_getDims();
-        size_t *d_output_dims = output->d_getDims();
+        Tensor *Y = outputs[0];
 
-        size_t *d_input_strides = input.d_getStrides();
-        size_t *d_filter_strides = filter.d_getStrides();
-        size_t *d_output_strides = output->d_getStrides();
-
-        // Extract stride, padding, and dilation values
-        int stride_h = static_cast<int>(strides[0]);
-        int stride_w = static_cast<int>(strides[1]);
-        int pad_h = static_cast<int>(pads[0]);
-        int pad_w = static_cast<int>(pads[1]);
-        int dilation_h = static_cast<int>(dilations[0]);
-        int dilation_w = static_cast<int>(dilations[1]);
-
-        dim3 gridSize((num_elements_output + BLOCK_SIZE - 1) / BLOCK_SIZE);
-        dim3 blockSize(BLOCK_SIZE);
-
-        switch (dtype)
+        switch (X.getDataType())
         {
         case TensorDataType::FLOAT32:
-            hipKernelLaunchCheck(hipLaunchKernelGGL(conv_kernel<float>, gridSize, blockSize, 0, 0,
-                                                    static_cast<const float *>(input_data), d_input_dims, d_input_strides,
-                                                    static_cast<const float *>(filter_data), d_filter_dims, d_filter_strides,
-                                                    static_cast<float *>(output_data), d_output_dims, d_output_strides,
-                                                    num_elements_output, input_ndims, filter_ndims, output_ndims,
-                                                    stride_h, stride_w, pad_h, pad_w, dilation_h, dilation_w, group));
-            break;
+            return executeConv<float>(X, W, B, Y, pads, strides, dilations, group, N, C, H, W_in, M, kH, kW, H_out, W_out);
         case TensorDataType::FLOAT64:
-            hipKernelLaunchCheck(hipLaunchKernelGGL(conv_kernel<double>, gridSize, blockSize, 0, 0,
-                                                    static_cast<const double *>(input_data), d_input_dims, d_input_strides,
-                                                    static_cast<const double *>(filter_data), d_filter_dims, d_filter_strides,
-                                                    static_cast<double *>(output_data), d_output_dims, d_output_strides,
-                                                    num_elements_output, input_ndims, filter_ndims, output_ndims,
-                                                    stride_h, stride_w, pad_h, pad_w, dilation_h, dilation_w, group));
-            break;
+            return executeConv<double>(X, W, B, Y, pads, strides, dilations, group, N, C, H, W_in, M, kH, kW, H_out, W_out);
+        case TensorDataType::INT32:
+            return executeConv<int32_t>(X, W, B, Y, pads, strides, dilations, group, N, C, H, W_in, M, kH, kW, H_out, W_out);
         case TensorDataType::INT64:
-            hipKernelLaunchCheck(hipLaunchKernelGGL(conv_kernel<int64_t>, gridSize, blockSize, 0, 0,
-                                                    static_cast<const int64_t *>(input_data), d_input_dims, d_input_strides,
-                                                    static_cast<const int64_t *>(filter_data), d_filter_dims, d_filter_strides,
-                                                    static_cast<int64_t *>(output_data), d_output_dims, d_output_strides,
-                                                    num_elements_output, input_ndims, filter_ndims, output_ndims,
-                                                    stride_h, stride_w, pad_h, pad_w, dilation_h, dilation_w, group));
-            break;
+            return executeConv<int64_t>(X, W, B, Y, pads, strides, dilations, group, N, C, H, W_in, M, kH, kW, H_out, W_out);
+        case TensorDataType::INT8:
+            return executeConv<int8_t>(X, W, B, Y, pads, strides, dilations, group, N, C, H, W_in, M, kH, kW, H_out, W_out);
+        case TensorDataType::UINT8:
+            return executeConv<uint8_t>(X, W, B, Y, pads, strides, dilations, group, N, C, H, W_in, M, kH, kW, H_out, W_out);
         default:
             return OperatorExecuteResult::DATA_TYPE_ERROR;
         }
-
-        hipErrorCheck(hipDeviceSynchronize());
-
-        return OperatorExecuteResult::SUCCESS;
     }
 };
 

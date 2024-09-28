@@ -22,7 +22,7 @@ struct SessionConfig
 class Session
 {
 public:
-    Session(const std::string &onnx_file_path, SessionConfig config);
+    Session(const std::string &onnx_file_path, SessionConfig config = SessionConfig());
     std::unordered_map<std::string, Tensor> run(const std::unordered_map<std::string, Tensor> &inputs);
     Tensor &getTensorByName(const std::string &name);
     Tensor &getOrAllocateIntermediateTensor(const std::string &name, const std::vector<size_t> &dims, TensorDataType dtype);
@@ -43,11 +43,11 @@ public:
 
 private:
     SessionConfig sessionConfig;
-    CpuDevice* hostDevice; // it is used as a default device
+    CpuDevice *hostDevice; // it is used as a default device
 
     /// XXX: For now, sessionConfig.device is used for all the operations
     std::vector<Device *> devices; // It's a list of all devices available, but not used now.
-    
+
     Graph graph;
     void prepareExecution(const std::unordered_map<std::string, Tensor> &inputs);
     void executeNode(const Node &node);

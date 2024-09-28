@@ -1,6 +1,7 @@
 #include "operator/operators.hpp"
 #include <iostream>
 #include <numeric>
+#include <algorithm>
 
 namespace CPU_OP
 {

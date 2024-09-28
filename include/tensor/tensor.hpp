@@ -17,7 +17,7 @@ public:
     Tensor(TensorDataType dtype, const std::vector<size_t> &dims, Device *device = new CpuDevice());
 
     template <typename T>
-    Tensor(TensorDataType dtype, const std::vector<size_t> &dims, const std::vector<T> &data, Device *device)
+    Tensor(TensorDataType dtype, const std::vector<size_t> &dims, const std::vector<T> &data, Device *device = new CpuDevice())
         : data_type_(dtype), num_elements_(calcNumElements(dims)), device_(device)
     {
         if (data.size() != num_elements_)

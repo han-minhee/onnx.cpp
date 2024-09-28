@@ -16,25 +16,7 @@ namespace CPU_OP
         const T *weight_data = W.data<T>();
         const T *bias_data = B ? B->data<T>() : nullptr;
 
-        if (!input_data || !weight_data || (B && !bias_data))
-        {
-            return OperatorExecuteResult::INPUT_TENSOR_ERROR;
-        }
-
-
-        // Allocate buffer for output data if not already allocated or if dimensions mismatch
-        if (!Y->data<T>() || Y->getNumElements() != N * M * H_out * W_out)
-        {
-            Y->allocateBuffer(X.getDataType(), N * M * H_out * W_out);
-            Y->reshape({N, M, H_out, W_out});
-        }
-
         T *output_data = Y->data<T>();
-        if (!output_data)
-        {
-            return OperatorExecuteResult::MEMORY_ALLOCATION_ERROR;
-        }
-
         // Zero-initialize output data
         std::fill(output_data, output_data + (N * M * H_out * W_out), static_cast<T>(0));
 
@@ -90,11 +72,6 @@ namespace CPU_OP
     OperatorExecuteResult ConvOperatorImpl::execute(const std::vector<Tensor> &inputs, std::vector<Tensor *> &outputs,
                                                     const std::unordered_map<std::string, Node::AttributeValue> &attributes)
     {
-        if (inputs.size() < 2)
-        {
-            return OperatorExecuteResult::INPUT_TENSOR_ERROR;
-        }
-
         const Tensor &X = inputs.at(0);
         const Tensor &W = inputs.at(1);
 

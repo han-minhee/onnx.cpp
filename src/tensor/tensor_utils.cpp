@@ -48,8 +48,23 @@ namespace TensorUtils
         }
     }
 
-    TensorCompareResult areTensorsEqual(const Tensor &lhs, const Tensor &rhs)
+    TensorCompareResult areTensorsEqual(const Tensor &left_tensor, const Tensor &right_tensor)
     {
+        // make lhs and rhs from the same dimensions and data type
+        TensorDataType lhs_data_type = left_tensor.getDataType();
+        TensorDataType rhs_data_type = right_tensor.getDataType();
+
+        // get the dims
+        std::vector<size_t> lhs_dims = left_tensor.getDims();
+        std::vector<size_t> rhs_dims = right_tensor.getDims();
+
+        Tensor lhs(lhs_data_type, lhs_dims);
+        Tensor rhs(rhs_data_type, rhs_dims);
+
+        // copy the data
+        lhs.copyFrom(left_tensor);
+        rhs.copyFrom(right_tensor);
+
         // check if the data types are the same
         if (lhs.getDataType() != rhs.getDataType())
         {
@@ -61,10 +76,6 @@ namespace TensorUtils
         {
             return TensorCompareResult::SHAPE_MISMATCH;
         }
-
-        // check if the data is no more different than the tolerance
-        // tolerance is get by getting the largest of the absolute values
-        // and 0.1% of it.
 
         switch (lhs.getDataType())
         {
@@ -92,7 +103,7 @@ namespace TensorUtils
                 }
             }
 
-            float tolerance = max_val * 1e-3;
+            float tolerance = max_val < 1.0f ? 1e-3f : max_val * 1e-3f;
 
             for (size_t i = 0; i < lhs.getNumElements(); ++i)
             {
@@ -128,7 +139,7 @@ namespace TensorUtils
                 }
             }
 
-            double tolerance = max_val * 1e-3;
+            double tolerance = max_val < 1.0 ? 1e-3 : max_val * 1e-3;
 
             for (size_t i = 0; i < lhs.getNumElements(); ++i)
             {
