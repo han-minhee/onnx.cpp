@@ -1,6 +1,5 @@
 #ifdef USE_HIP
 #include "operator/operators.hpp"
-#include "operator/elementwise_operator.hpp"
 
 #include <hip/hip_runtime.h>
 #include <vector>

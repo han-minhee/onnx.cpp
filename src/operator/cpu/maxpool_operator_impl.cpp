@@ -78,11 +78,6 @@ namespace CPU_OP
         const std::vector<Tensor> &inputs, std::vector<Tensor *> &outputs,
         const std::unordered_map<std::string, Node::AttributeValue> &attributes)
     {
-        if (inputs.size() < 1 || outputs.empty() || outputs[0] == nullptr)
-        {
-            return OperatorExecuteResult::INPUT_TENSOR_ERROR;
-        }
-
         const Tensor &X = inputs.at(0);
         Tensor *Y = outputs[0];
 

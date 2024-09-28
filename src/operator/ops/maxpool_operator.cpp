@@ -125,6 +125,12 @@ OperatorExecuteResult MaxPoolOperator::execute(
     const std::vector<Tensor> &inputs, std::vector<Tensor *> &outputs,
     const std::unordered_map<std::string, Node::AttributeValue> &attributes, Device *device)
 {
+
+    if (inputs.size() < 1 || outputs.empty() || outputs[0] == nullptr)
+    {
+        return OperatorExecuteResult::INPUT_TENSOR_ERROR;
+    }
+
     DeviceType deviceType = device->getType();
     switch (deviceType)
     {
