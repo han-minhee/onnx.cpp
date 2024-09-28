@@ -8,11 +8,41 @@
 #include "device/device.hpp"
 #include "tensor/buffer.hpp"
 
+#include "utils.hpp"
+
 class Tensor
 {
 public:
     Tensor(Device *device = new CpuDevice());
     Tensor(TensorDataType dtype, const std::vector<size_t> &dims, Device *device = new CpuDevice());
+
+    template <typename T>
+    Tensor(TensorDataType dtype, const std::vector<size_t> &dims, const std::vector<T> &data, Device *device)
+        : data_type_(dtype), num_elements_(calcNumElements(dims)), device_(device)
+    {
+        if (data.size() != num_elements_)
+        {
+            throw std::invalid_argument("Data size does not match tensor dimensions.");
+        }
+
+        // Allocate buffer for the tensor
+        buffer_ = Buffer::create(device, dtype, num_elements_);
+
+        // Set the data into the buffer
+        buffer_->setData(data);
+
+        // Set the dimensions and calculate the strides
+        dimensions_ = dims;
+#ifdef USE_HIP
+        if (device_->getType() == DeviceType::HIP)
+        {
+            // Allocate device memory for dimensions and copy from host
+            hipErrorCheck(hipMalloc(&d_dimensions_, dims.size() * sizeof(size_t)));
+            hipErrorCheck(hipMemcpy(d_dimensions_, dims.data(), dims.size() * sizeof(size_t), hipMemcpyHostToDevice));
+        }
+#endif
+        calculateAndSetStrides(dims);
+    }
 
     std::vector<size_t> getDims() const;
     std::vector<size_t> getStrides() const;

@@ -25,6 +25,7 @@ inline void hipAssert(hipError_t code, const char *file, int line, bool abort = 
 #define hipKernelLaunchCheck(KernelCall) \
    {                                     \
       KernelCall;                        \
+      hipErrorCheck(hipDeviceSynchronize());    \
       hipErrorCheck(hipGetLastError());  \
    }
 
