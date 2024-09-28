@@ -2,6 +2,8 @@
 #include "tensor/tensor_utils.hpp"
 #include <stdexcept>
 #include <sstream>
+#include <iostream>
+#include <cstring>
 #include "utils.hpp"
 
 #ifdef USE_HIP
@@ -166,4 +168,29 @@ std::string CpuBuffer::toString(size_t max_elements) const
 
     oss << "]";
     return oss.str();
+}
+
+void CpuBuffer::copyFrom(const Buffer *src)
+{
+    switch (src->getDeviceType())
+    {
+    case DeviceType::CPU:
+    {
+        const void *src_data = src->getDataPointer();
+        std::memcpy(data_, src_data, size_in_bytes_);
+        break;
+    }
+
+#ifdef USE_HIP
+    case DeviceType::HIP:
+    {
+        const HipBuffer *hip_src = dynamic_cast<const HipBuffer *>(src);
+        hipErrorCheck(hipMemcpy(data_, hip_src->getDataPointer(), size_in_bytes_, hipMemcpyDeviceToHost));
+        break;
+    }
+#endif
+
+    default:
+        throw std::runtime_error("Unsupported device type");
+    }
 }

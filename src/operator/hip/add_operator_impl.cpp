@@ -9,21 +9,21 @@
 #include "utils.hpp"
 
 #define MAX_DIMS 8
+#define BLOCK_SIZE 256
 
 namespace HIP_OP
 {
 
     template <typename T>
-    __global__ void add_kernel(const T *A_data, const size_t *A_dims, const size_t *A_strides,
-                               const T *B_data, const size_t *B_dims, const size_t *B_strides,
-                               T *C_data, const size_t *C_dims, const size_t *C_strides,
+    __global__ void add_kernel(const T *__restrict__ A_data, const size_t *__restrict__ A_dims, const size_t *__restrict__ A_strides,
+                               const T *__restrict__ B_data, const size_t *__restrict__ B_dims, const size_t *__restrict__ B_strides,
+                               T *__restrict__ C_data, const size_t *__restrict__ C_dims, const size_t *__restrict__ C_strides,
                                size_t num_elements, size_t A_ndims, size_t B_ndims, size_t C_ndims)
     {
         size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
         if (idx >= num_elements)
             return;
 
-        // Compute the multi-dimensional index for C
         size_t indices[MAX_DIMS];
         size_t tmp = idx;
         for (int i = C_ndims - 1; i >= 0; --i)
@@ -32,82 +32,58 @@ namespace HIP_OP
             tmp /= C_dims[i];
         }
 
-        // Compute the index in A
-        size_t A_idx = 0;
-        for (int i = 0; i < A_ndims; ++i)
+        size_t A_idx = 0, B_idx = 0;
+        for (int i = 0; i < C_ndims; ++i)
         {
-            size_t dim = A_dims[i];
-            size_t stride = A_strides[i];
-            size_t index = indices[i];
-            if (dim == 1)
-            {
-                index = 0; // broadcasting dimension
-            }
-            A_idx += index * stride;
+            if (i < A_ndims)
+                A_idx += (indices[i] % A_dims[i]) * A_strides[i];
+            if (i < B_ndims)
+                B_idx += (indices[C_ndims - B_ndims + i] % B_dims[i]) * B_strides[i];
         }
 
-        // Compute the index in B
-        size_t B_idx = 0;
-        for (int i = 0; i < B_ndims; ++i)
-        {
-            size_t dim = B_dims[i];
-            size_t stride = B_strides[i];
-            size_t index = indices[i];
-            if (dim == 1)
-            {
-                index = 0; // broadcasting dimension
-            }
-            B_idx += index * stride;
-        }
-
-        // Perform the addition
         C_data[idx] = A_data[A_idx] + B_data[B_idx];
     }
-
     OperatorExecuteResult AddOperatorImpl::execute(const std::vector<Tensor> &inputs, std::vector<Tensor *> &outputs,
                                                    const std::unordered_map<std::string, Node::AttributeValue> &attributes, Device *device)
     {
-
+        if (inputs.size() != 2)
+        {
+            return OperatorExecuteResult::INPUT_TENSOR_ERROR;
+        }
+        if (outputs.empty() || outputs.size() != 1)
+        {
+            return OperatorExecuteResult::OUTPUT_TENSOR_ERROR;
+        }
 
         const Tensor &A = inputs[0];
         const Tensor &B = inputs[1];
         Tensor *C = outputs[0];
 
-        // Get the data type
-        TensorDataType dtype = A.getDataType();
-
-        // Check that data types of A and B match
         if (A.getDataType() != B.getDataType())
         {
-            throw std::runtime_error("Input tensors must have the same data type");
+            return OperatorExecuteResult::DATA_TYPE_ERROR;
         }
 
-        const std::vector<size_t> output_dims = C->getDims();
+        TensorDataType dtype = A.getDataType();
+        size_t num_elements_C = C->getNumElements();
 
-        // Get the data pointers
         const void *A_data = A.getBuffer()->getDataPointer();
         const void *B_data = B.getBuffer()->getDataPointer();
         void *C_data = C->getBuffer()->getDataPointer();
 
-        // Get the number of elements
-        size_t num_elements_A = A.getNumElements();
-        size_t num_elements_B = B.getNumElements();
-        size_t num_elements_C = C->getNumElements();
+        const auto &A_dims = A.getDims();
+        const auto &B_dims = B.getDims();
+        const auto &C_dims = C->getDims();
+        const auto &A_strides = A.getStrides();
+        const auto &B_strides = B.getStrides();
+        const auto &C_strides = C->getStrides();
 
-        // get the dims and strides
-        const std::vector<size_t> A_dims = A.getDims();
-        const std::vector<size_t> B_dims = B.getDims();
-        const std::vector<size_t> C_dims = C->getDims();
-        const std::vector<size_t> A_strides = A.getStrides();
-        const std::vector<size_t> B_strides = B.getStrides();
-        const std::vector<size_t> C_strides = C->getStrides();
-
-        // make device pointers and allocate memory for dims and strides
-        size_t *d_A_dims, *d_B_dims, *d_C_dims;
-        size_t *d_A_strides, *d_B_strides, *d_C_strides;
         size_t A_ndims = A_dims.size();
         size_t B_ndims = B_dims.size();
         size_t C_ndims = C_dims.size();
+
+        size_t *d_A_dims, *d_B_dims, *d_C_dims;
+        size_t *d_A_strides, *d_B_strides, *d_C_strides;
 
         hipErrorCheck(hipMalloc(&d_A_dims, A_ndims * sizeof(size_t)));
         hipErrorCheck(hipMalloc(&d_B_dims, B_ndims * sizeof(size_t)));
@@ -123,15 +99,32 @@ namespace HIP_OP
         hipErrorCheck(hipMemcpy(d_B_strides, B_strides.data(), B_ndims * sizeof(size_t), hipMemcpyHostToDevice));
         hipErrorCheck(hipMemcpy(d_C_strides, C_strides.data(), C_ndims * sizeof(size_t), hipMemcpyHostToDevice));
 
-        // launch the kernel
-        hipKernelLaunchCheck(hipLaunchKernelGGL(add_kernel<float>, dim3((num_elements_C + 255) / 256), dim3(256), 0, 0,
-                                                (float *)A_data, d_A_dims, d_A_strides,
-                                                (float *)B_data, d_B_dims, d_B_strides,
-                                                (float *)C_data, d_C_dims, d_C_strides,
-                                                num_elements_C, A_ndims, B_ndims, C_ndims));
+        dim3 gridSize((num_elements_C + BLOCK_SIZE - 1) / BLOCK_SIZE);
+        dim3 blockSize(BLOCK_SIZE);
 
-        // Wait for the kernel to finish
+        switch (dtype)
+        {
+        case TensorDataType::FLOAT32:
+            hipKernelLaunchCheck(hipLaunchKernelGGL(add_kernel<float>, gridSize, blockSize, 0, 0,
+                                                    static_cast<const float *>(A_data), d_A_dims, d_A_strides,
+                                                    static_cast<const float *>(B_data), d_B_dims, d_B_strides,
+                                                    static_cast<float *>(C_data), d_C_dims, d_C_strides,
+                                                    num_elements_C, A_ndims, B_ndims, C_ndims));
+            break;
+        // Add cases for other data types as needed
+        default:
+            return OperatorExecuteResult::DATA_TYPE_ERROR;
+        }
+
         hipErrorCheck(hipDeviceSynchronize());
+
+        // Clean up
+        hipErrorCheck(hipFree(d_A_dims));
+        hipErrorCheck(hipFree(d_B_dims));
+        hipErrorCheck(hipFree(d_C_dims));
+        hipErrorCheck(hipFree(d_A_strides));
+        hipErrorCheck(hipFree(d_B_strides));
+        hipErrorCheck(hipFree(d_C_strides));
 
         return OperatorExecuteResult::SUCCESS;
     }

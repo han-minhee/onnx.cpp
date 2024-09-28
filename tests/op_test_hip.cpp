@@ -37,8 +37,8 @@ void run_and_check_operator(const OperatorRegistry::OperatorFunctions *op,
         ASSERT_EQ(outputs[i]->getDims(), expected[i].getDims());
         ASSERT_EQ(outputs[i]->getDataType(), expected[i].getDataType());
 
-        std::cout << inputs[i].toString() << std::endl;
-        std::cout << outputs[i]->toString() << std::endl;
+        // std::cout << inputs[i].toString() << std::endl;
+        // std::cout << outputs[i]->toString() << std::endl;
 
         // move tensors to host
         outputs[i]->to(new CpuDevice());
@@ -108,7 +108,7 @@ void run_and_check_operator(const OperatorRegistry::OperatorFunctions *op,
     } while (0)
 
 // ----------------------- AddOperator Tests -----------------------
-TEST(OperaotrTestCPU, AddOperatorBasic)
+TEST(OperatorTestHIP, AddOperatorBasic)
 {
     HipDevice hipDevice = HipDevice(0);
 
@@ -121,13 +121,9 @@ TEST(OperaotrTestCPU, AddOperatorBasic)
     std::vector<Tensor> expected_tensors = {expected};
 
     RUN_TEST_CASE(OperatorType::Add, inputs, expected_tensors, attributes, OperatorExecuteResult::SUCCESS, &hipDevice);
-
-    hipDevice.synchronize();
-
-    std::cout << "AddOperatorBasic test passed" << std::endl;
 }
 
-TEST(OperaotrTestCPU, AddOperatorBroadcastScalar)
+TEST(OperatorTestHIP, AddOperatorBroadcastScalar)
 {
     // Broadcasting scalar addition
     HipDevice hipDevice = HipDevice(0);
@@ -142,7 +138,7 @@ TEST(OperaotrTestCPU, AddOperatorBroadcastScalar)
     RUN_TEST_CASE(OperatorType::Add, inputs, expected_tensors, attributes, OperatorExecuteResult::SUCCESS, &hipDevice);
 }
 
-TEST(OperaotrTestCPU, AddOperatorShapeMismatchError)
+TEST(OperatorTestHIP, AddOperatorShapeMismatchError)
 {
     // Shape mismatch error
     HipDevice hipDevice = HipDevice(0);
@@ -156,8 +152,114 @@ TEST(OperaotrTestCPU, AddOperatorShapeMismatchError)
     RUN_TEST_CASE(OperatorType::Add, inputs, expected_tensors, attributes, OperatorExecuteResult::SHAPE_MISMATCH_ERROR, &hipDevice);
 }
 
+TEST(OperatorTestHIP, AddOperatorBroadcastVector)
+{
+    // Broadcasting vector addition
+    HipDevice hipDevice = HipDevice(0);
+    Tensor t1 = create_tensor(TensorDataType::FLOAT32, {2, 2}, {1.0f, 2.0f, 3.0f, 4.0f}, &hipDevice);
+    Tensor t2 = create_tensor(TensorDataType::FLOAT32, {2}, {10.0f, 20.0f}, &hipDevice); // Vector tensor
+    Tensor expected = create_tensor(TensorDataType::FLOAT32, {2, 2}, {11.0f, 22.0f, 13.0f, 24.0f}, &hipDevice);
+    std::unordered_map<std::string, Node::AttributeValue> attributes;
+
+    std::vector<Tensor> inputs = {t1, t2};
+    std::vector<Tensor> expected_tensors = {expected};
+
+    RUN_TEST_CASE(OperatorType::Add, inputs, expected_tensors, attributes, OperatorExecuteResult::SUCCESS, &hipDevice);
+}
+
+// ----------------------- SubOperator Tests -----------------------
+TEST(OperatorTestHIP, SubOperatorBasic)
+{
+    // Basic subtraction test
+    HipDevice hipDevice = HipDevice(0);
+    Tensor t1 = create_tensor(TensorDataType::FLOAT32, {2, 2}, {5.0f, 7.0f, 9.0f, 11.0f}, &hipDevice);
+    Tensor t2 = create_tensor(TensorDataType::FLOAT32, {2, 2}, {1.0f, 2.0f, 3.0f, 4.0f}, &hipDevice);
+    Tensor expected = create_tensor(TensorDataType::FLOAT32, {2, 2}, {4.0f, 5.0f, 6.0f, 7.0f}, &hipDevice);
+
+    std::unordered_map<std::string, Node::AttributeValue> attributes;
+
+    std::vector<Tensor> inputs = {t1, t2};
+    std::vector<Tensor> expected_tensors = {expected};
+
+    RUN_TEST_CASE(OperatorType::Sub, inputs, expected_tensors, attributes, OperatorExecuteResult::SUCCESS, &hipDevice);
+}
+
+TEST(OperatorTestHIP, SubOperatorShapeMismatchError)
+{
+    HipDevice hipDevice = HipDevice(0);
+    Tensor t1 = create_tensor(TensorDataType::FLOAT32, {2, 2}, {1.0f, 2.0f, 3.0f, 4.0f}, &hipDevice);
+    Tensor t2 = create_tensor(TensorDataType::FLOAT32, {3, 2}, {5.0f, 6.0f, 7.0f, 8.0f, 9.0f, 10.0f}, &hipDevice);
+    std::unordered_map<std::string, Node::AttributeValue> attributes;
+
+    std::vector<Tensor> inputs = {t1, t2};
+    std::vector<Tensor> expected_tensors;
+
+    RUN_TEST_CASE(OperatorType::Sub, inputs, expected_tensors, attributes, OperatorExecuteResult::SHAPE_MISMATCH_ERROR, &hipDevice);
+}
+
+TEST(OperatorTestHIP, SubOperatorBroadcastScalar)
+{
+    // Broadcasting scalar subtraction
+    HipDevice hipDevice = HipDevice(0);
+    Tensor t1 = create_tensor(TensorDataType::FLOAT32, {2, 2}, {10.0f, 20.0f, 30.0f, 40.0f}, &hipDevice);
+    Tensor t2 = create_tensor(TensorDataType::FLOAT32, {}, {2.0f}, &hipDevice); // Scalar tensor
+    Tensor expected = create_tensor(TensorDataType::FLOAT32, {2, 2}, {8.0f, 18.0f, 28.0f, 38.0f}, &hipDevice);
+    std::unordered_map<std::string, Node::AttributeValue> attributes;
+
+    std::vector<Tensor> inputs = {t1, t2};
+    std::vector<Tensor> expected_tensors = {expected};
+
+    RUN_TEST_CASE(OperatorType::Sub, inputs, expected_tensors, attributes, OperatorExecuteResult::SUCCESS, &hipDevice);
+}
+
+/// FIXME: Broadcasting is likely broken
+TEST(OperatorTestHIP, SubOperatorBroadcastVector0)
+{
+    // Broadcasting vector subtraction
+    HipDevice hipDevice = HipDevice(0);
+    Tensor t1 = create_tensor(TensorDataType::FLOAT32, {2, 2}, {1.0f, 2.0f, 3.0f, 4.0f}, &hipDevice);
+    Tensor t2 = create_tensor(TensorDataType::FLOAT32, {2}, {10.0f, 20.0f}, &hipDevice); // Vector tensor
+    Tensor expected = create_tensor(TensorDataType::FLOAT32, {2, 2}, {-9.0f, -18.0f, -7.0f, -16.0f}, &hipDevice);
+    std::unordered_map<std::string, Node::AttributeValue> attributes;
+
+    std::vector<Tensor> inputs = {t1, t2};
+    std::vector<Tensor> expected_tensors = {expected};
+
+    RUN_TEST_CASE(OperatorType::Sub, inputs, expected_tensors, attributes, OperatorExecuteResult::SUCCESS, &hipDevice);
+}
+
+TEST(OperatorTestHIP, SubOperatorBroadcastVector1)
+{
+    // Broadcasting vector subtraction
+    HipDevice hipDevice = HipDevice(0);
+    Tensor t1 = create_tensor(TensorDataType::FLOAT32, {2, 3}, {1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f}, &hipDevice);
+    Tensor t2 = create_tensor(TensorDataType::FLOAT32, {3}, {10.0f, 20.0f, 30.0f}, &hipDevice); // Vector tensor
+    Tensor expected = create_tensor(TensorDataType::FLOAT32, {2, 3}, {-9.0f, -18.0f, -27.0f, -6.0f, -15.0f, -24.0f}, &hipDevice);
+    std::unordered_map<std::string, Node::AttributeValue> attributes;
+
+    std::vector<Tensor> inputs = {t1, t2};
+    std::vector<Tensor> expected_tensors = {expected};
+
+    RUN_TEST_CASE(OperatorType::Sub, inputs, expected_tensors, attributes, OperatorExecuteResult::SUCCESS, &hipDevice);
+}
+TEST(OperatorTestHIP, SubOperatorBroadcastVector2)
+{
+    // Broadcasting vector subtraction
+    HipDevice hipDevice = HipDevice(0);
+    Tensor t1 = create_tensor(TensorDataType::FLOAT32, {1, 2, 3}, {1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f}, &hipDevice);
+    Tensor t2 = create_tensor(TensorDataType::FLOAT32, {2, 3}, {10.0f, 20.0f, 30.0f, 40.0f, 50.0f, 60.0f}, &hipDevice); // Vector tensor
+    Tensor expected = create_tensor(TensorDataType::FLOAT32, {1, 2, 3}, {-9.0f, -18.0f, -27.0f, -36.0f, -45.0f, -54.0f}, &hipDevice);
+
+    std::unordered_map<std::string, Node::AttributeValue> attributes;
+
+    std::vector<Tensor> inputs = {t1, t2};
+    std::vector<Tensor> expected_tensors = {expected};
+
+    RUN_TEST_CASE(OperatorType::Sub, inputs, expected_tensors, attributes, OperatorExecuteResult::SUCCESS, &hipDevice);
+}
+
 // ----------------------- ConcatOperator Tests -----------------------
-TEST(OperaotrTestCPU, ConcatOperatorBasic)
+TEST(OperatorTestHIP, ConcatOperatorBasic)
 {
     // Basic concatenation along axis 0
     HipDevice hipDevice = HipDevice(0);
@@ -174,7 +276,7 @@ TEST(OperaotrTestCPU, ConcatOperatorBasic)
     RUN_TEST_CASE(OperatorType::Concat, inputs, expected_tensors, attributes, OperatorExecuteResult::SUCCESS, &hipDevice);
 }
 
-TEST(OperaotrTestCPU, ConcatOperatorShapeMismatchError)
+TEST(OperatorTestHIP, ConcatOperatorShapeMismatchError)
 {
     // Shape mismatch error
     HipDevice hipDevice = HipDevice(0);
@@ -190,7 +292,7 @@ TEST(OperaotrTestCPU, ConcatOperatorShapeMismatchError)
 }
 
 // // ----------------------- ConstantOperator Tests -----------------------
-// TEST(OperaotrTestCPU, ConstantOperatorBasic)
+// TEST(OperatorTestHIP, ConstantOperatorBasic)
 // {
 //     // Create a constant tensor
 //     Tensor value_tensor = create_tensor(TensorDataType::FLOAT32, {2, 2}, {1.0f, 2.0f, 3.0f, 4.0f});
@@ -205,7 +307,7 @@ TEST(OperaotrTestCPU, ConcatOperatorShapeMismatchError)
 // }
 
 // // ----------------------- ConvOperator Tests -----------------------
-// TEST(OperaotrTestCPU, ConvOperatorBasic)
+// TEST(OperatorTestHIP, ConvOperatorBasic)
 // {
 //     // Simple convolution test
 //     Tensor X = create_tensor(TensorDataType::FLOAT32, {1, 1, 4, 4},
@@ -234,7 +336,7 @@ TEST(OperaotrTestCPU, ConcatOperatorShapeMismatchError)
 // }
 
 // // ----------------------- DivOperator Tests -----------------------
-// TEST(OperaotrTestCPU, DivOperatorBasic)
+// TEST(OperatorTestHIP, DivOperatorBasic)
 // {
 //     // Basic division test
 //     Tensor t1 = create_tensor(TensorDataType::FLOAT32, {2, 2}, {10.0f, 20.0f, 30.0f, 40.0f});
@@ -249,7 +351,7 @@ TEST(OperaotrTestCPU, ConcatOperatorShapeMismatchError)
 // }
 
 // // ----------------------- GatherOperator Tests -----------------------
-// TEST(OperaotrTestCPU, GatherOperatorBasic)
+// TEST(OperatorTestHIP, GatherOperatorBasic)
 // {
 //     // Basic gather test
 //     Tensor data = create_tensor(TensorDataType::FLOAT32, {3, 4},
@@ -270,7 +372,7 @@ TEST(OperaotrTestCPU, ConcatOperatorShapeMismatchError)
 // }
 
 // // ----------------------- MatMulOperator Tests -----------------------
-// TEST(OperaotrTestCPU, MatMulOperatorBasic)
+// TEST(OperatorTestHIP, MatMulOperatorBasic)
 // {
 //     // Basic matrix multiplication
 //     Tensor A = create_tensor(TensorDataType::FLOAT32, {2, 3},
@@ -293,7 +395,7 @@ TEST(OperaotrTestCPU, ConcatOperatorShapeMismatchError)
 // }
 
 // // ----------------------- MaxPoolOperator Tests -----------------------
-// TEST(OperaotrTestCPU, MaxPoolOperatorBasic)
+// TEST(OperatorTestHIP, MaxPoolOperatorBasic)
 // {
 //     // Basic MaxPool test
 //     Tensor X = create_tensor(TensorDataType::FLOAT32, {1, 1, 4, 4},
@@ -316,7 +418,7 @@ TEST(OperaotrTestCPU, ConcatOperatorShapeMismatchError)
 // }
 
 // // ----------------------- MulOperator Tests -----------------------
-// TEST(OperaotrTestCPU, MulOperatorBasic)
+// TEST(OperatorTestHIP, MulOperatorBasic)
 // {
 //     // Basic multiplication test
 //     Tensor t1 = create_tensor(TensorDataType::FLOAT32, {2, 2}, {1.0f, 2.0f, 3.0f, 4.0f});
@@ -331,7 +433,7 @@ TEST(OperaotrTestCPU, ConcatOperatorShapeMismatchError)
 // }
 
 // // ----------------------- SigmoidOperator Tests -----------------------
-// TEST(OperaotrTestCPU, SigmoidOperatorBasic)
+// TEST(OperatorTestHIP, SigmoidOperatorBasic)
 // {
 //     // Basic sigmoid test
 //     Tensor data = create_tensor(TensorDataType::FLOAT32, {2, 2}, {0.0f, -1.0f, 1.0f, 2.0f});
@@ -347,7 +449,7 @@ TEST(OperaotrTestCPU, ConcatOperatorShapeMismatchError)
 // }
 
 // // ----------------------- SliceOperator Tests -----------------------
-// TEST(OperaotrTestCPU, SliceOperatorBasic)
+// TEST(OperatorTestHIP, SliceOperatorBasic)
 // {
 //     // Basic slice test
 //     Tensor data = create_tensor(TensorDataType::FLOAT32, {3, 4},
@@ -370,7 +472,7 @@ TEST(OperaotrTestCPU, ConcatOperatorShapeMismatchError)
 // }
 
 // // ----------------------- SoftmaxOperator Tests -----------------------
-// TEST(OperaotrTestCPU, SoftmaxOperatorBasic)
+// TEST(OperatorTestHIP, SoftmaxOperatorBasic)
 // {
 //     // Basic softmax test
 //     Tensor data = create_tensor(TensorDataType::FLOAT32, {2, 2}, {1.0f, 2.0f, 3.0f, 4.0f});
@@ -386,7 +488,7 @@ TEST(OperaotrTestCPU, ConcatOperatorShapeMismatchError)
 // }
 
 // // ----------------------- SplitOperator Tests -----------------------
-// TEST(OperaotrTestCPU, SplitOperatorBasic)
+// TEST(OperatorTestHIP, SplitOperatorBasic)
 // {
 //     // Basic split test
 //     Tensor data = create_tensor(TensorDataType::FLOAT32, {2, 4},
@@ -422,24 +524,8 @@ TEST(OperaotrTestCPU, ConcatOperatorShapeMismatchError)
 // //     RUN_TEST_CASE(OperatorType::Split, inputs, expected_tensors, attributes, DeviceType::CPU, OperatorExecuteResult::SHAPE_MISMATCH_ERROR);
 // // }
 
-// // ----------------------- SubOperator Tests -----------------------
-// TEST(OperaotrTestCPU, SubOperatorBasic)
-// {
-//     // Basic subtraction test
-//     Tensor t1 = create_tensor(TensorDataType::FLOAT32, {2, 2}, {5.0f, 7.0f, 9.0f, 11.0f});
-//     Tensor t2 = create_tensor(TensorDataType::FLOAT32, {2, 2}, {1.0f, 2.0f, 3.0f, 4.0f});
-//     Tensor expected = create_tensor(TensorDataType::FLOAT32, {2, 2}, {4.0f, 5.0f, 6.0f, 7.0f});
-
-//     std::unordered_map<std::string, Node::AttributeValue> attributes;
-
-//     std::vector<Tensor> inputs = {t1, t2};
-//     std::vector<Tensor> expected_tensors = {expected};
-
-//     RUN_TEST_CASE(OperatorType::Sub, inputs, expected_tensors, attributes, DeviceType::CPU, OperatorExecuteResult::SUCCESS);
-// }
-
 // // ----------------------- TransposeOperator Tests -----------------------
-// TEST(OperaotrTestCPU, TransposeOperatorBasic)
+// TEST(OperatorTestHIP, TransposeOperatorBasic)
 // {
 //     // Basic transpose test
 //     Tensor data = create_tensor(TensorDataType::FLOAT32, {2, 3}, {1, 2, 3, 4, 5, 6});
@@ -454,7 +540,7 @@ TEST(OperaotrTestCPU, ConcatOperatorShapeMismatchError)
 // }
 
 // // ----------------------- ReshapeOperator Tests -----------------------
-// TEST(OperaotrTestCPU, ReshapeOperatorBasic)
+// TEST(OperatorTestHIP, ReshapeOperatorBasic)
 // {
 //     // Basic reshape test
 //     Tensor data = create_tensor(TensorDataType::FLOAT32, {2, 3}, {1, 2, 3, 4, 5, 6});
@@ -470,7 +556,7 @@ TEST(OperaotrTestCPU, ConcatOperatorShapeMismatchError)
 // }
 
 // // ----------------------- ResizeOperator Tests -----------------------
-// TEST(OperaotrTestCPU, ResizeOperatorBasic)
+// TEST(OperatorTestHIP, ResizeOperatorBasic)
 // {
 //     // Basic resize test (nearest neighbor)
 //     Tensor data = create_tensor(TensorDataType::FLOAT32, {1, 1, 2, 2}, {1, 2, 3, 4});
@@ -490,7 +576,7 @@ TEST(OperaotrTestCPU, ConcatOperatorShapeMismatchError)
 // }
 
 // // ----------------------- ShapeOperator Tests -----------------------
-// TEST(OperaotrTestCPU, ShapeOperatorBasic)
+// TEST(OperatorTestHIP, ShapeOperatorBasic)
 // {
 //     // Basic shape operator test
 //     Tensor data = create_tensor(TensorDataType::FLOAT32, {2, 3, 4}, std::vector<float>(24, 1.0f));

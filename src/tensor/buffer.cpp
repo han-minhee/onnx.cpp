@@ -1,5 +1,27 @@
 #include "tensor/buffer.hpp"
 
+void Buffer::copyFrom(const Buffer *src)
+{
+    if (this->getSizeInBytes() != src->getSizeInBytes())
+    {
+        throw std::runtime_error("Buffer size mismatch.");
+    }
+
+    switch (this->getDeviceType())
+    {
+    case DeviceType::CPU:
+        dynamic_cast<CpuBuffer *>(this)->copyFrom(dynamic_cast<const CpuBuffer *>(src));
+        break;
+#ifdef USE_HIP
+    case DeviceType::HIP:
+        dynamic_cast<HipBuffer *>(this)->copyFrom(dynamic_cast<const HipBuffer *>(src));
+        break;
+#endif
+    default:
+        throw std::runtime_error("Unsupported device type");
+    }
+}
+
 std::shared_ptr<Buffer> Buffer::create(Device *device, TensorDataType data_type, size_t num_elements)
 {
     if (device == nullptr)

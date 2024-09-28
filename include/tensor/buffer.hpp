@@ -43,6 +43,8 @@ public:
     static std::shared_ptr<Buffer> create(Device *device, TensorDataType data_type, size_t num_elements);
 
     virtual std::string toString(size_t max_elements = 5) const = 0;
+
+    virtual void copyFrom(const Buffer *src) = 0;
 };
 
 class CpuBuffer : public Buffer
@@ -71,6 +73,8 @@ public:
     void setData(const std::vector<T> &data);
 
     std::string toString(size_t max_elements = 5) const override;
+
+    void copyFrom(const Buffer *src) override;
 
 private:
     CpuDevice *device_;
@@ -108,6 +112,8 @@ public:
     void setData(const std::vector<T> &data);
 
     std::string toString(size_t max_elements = 5) const override;
+
+    void copyFrom(const Buffer *src) override;
 
 private:
     HipDevice *device_;

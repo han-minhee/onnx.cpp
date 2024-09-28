@@ -9,19 +9,44 @@ namespace HIP_OP
 {
 
     OperatorExecuteResult ConstantOperatorImpl::execute(const std::vector<Tensor> &inputs, std::vector<Tensor *> &outputs,
-                                                    const std::unordered_map<std::string, Node::AttributeValue> &attributes, Device *device)
+                                                        const std::unordered_map<std::string, Node::AttributeValue> &attributes, Device *device)
     {
-        // check if the device is a HIP device
-        if (device->getType() != DeviceType::HIP)
+
+        if (attributes.count("value"))
         {
-            throw std::runtime_error("Device is not a HIP device");
+            const Tensor &source_tensor = std::get<Tensor>(attributes.at("value"));
+            outputs[0]->copyFrom(source_tensor);
+
+
+            return OperatorExecuteResult::SUCCESS;
+        }
+        // Handle other types (int, ints, float, floats, etc.)
+        else if (attributes.count("int_value"))
+        {
+
+            return OperatorExecuteResult::SUCCESS;
+        }
+        else if (attributes.count("float_value"))
+        {
+
+            return OperatorExecuteResult::SUCCESS;
+        }
+        else if (attributes.count("ints_value"))
+        {
+
+            return OperatorExecuteResult::SUCCESS;
+        }
+        else if (attributes.count("floats_value"))
+        {
+
+            return OperatorExecuteResult::SUCCESS;
         }
         else
         {
-            std::cout << "Device is a HIP device" << std::endl;
+            return OperatorExecuteResult::ATTRIBUTE_ERROR;
         }
 
-        return OperatorExecuteResult::NOT_IMPLEMENTED;
+        return OperatorExecuteResult::SUCCESS;
     }
 };
 

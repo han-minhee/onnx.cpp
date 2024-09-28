@@ -72,15 +72,6 @@ namespace CPU_OP
         return static_cast<size_t>(x_nearest);
     }
 
-    std::vector<size_t> calcStrides(const std::vector<size_t> &dims)
-    {
-        std::vector<size_t> stride(dims.size(), 1);
-        for (int i = dims.size() - 2; i >= 0; --i)
-        {
-            stride[i] = stride[i + 1] * dims[i + 1];
-        }
-        return stride;
-    }
 
     template <typename T>
     OperatorExecuteResult executeResize(const Tensor &input_tensor, Tensor *output_tensor,
@@ -137,7 +128,7 @@ namespace CPU_OP
         T *output_data = output_tensor->data<T>();
 
         // Compute output strides
-        std::vector<size_t> output_strides = calcStrides(output_shape);
+        std::vector<size_t> output_strides = output_tensor->getStrides();
 
         // Main loop to compute resized tensor
         std::vector<size_t> indices(output_shape.size(), 0);

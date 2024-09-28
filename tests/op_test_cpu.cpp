@@ -124,6 +124,19 @@ TEST(OperaotrTestCPU, AddOperatorBroadcastScalar)
     RUN_TEST_CASE(OperatorType::Add, inputs, expected_tensors, attributes, OperatorExecuteResult::SUCCESS);
 }
 
+TEST(OperatorTestCPU, AddOperatorBroadcastVector){
+    // Broadcasting vector addition
+    Tensor t1 = create_tensor(TensorDataType::FLOAT32, {2, 2}, {1.0f, 2.0f, 3.0f, 4.0f});
+    Tensor t2 = create_tensor(TensorDataType::FLOAT32, {2}, {10.0f, 20.0f}); // Vector tensor
+    Tensor expected = create_tensor(TensorDataType::FLOAT32, {2, 2}, {11.0f, 22.0f, 13.0f, 24.0f});
+    std::unordered_map<std::string, Node::AttributeValue> attributes;
+
+    std::vector<Tensor> inputs = {t1, t2};
+    std::vector<Tensor> expected_tensors = {expected};
+
+    RUN_TEST_CASE(OperatorType::Add, inputs, expected_tensors, attributes, OperatorExecuteResult::SUCCESS);
+}
+
 TEST(OperaotrTestCPU, AddOperatorShapeMismatchError)
 {
     Tensor t1 = create_tensor(TensorDataType::FLOAT32, {2, 2}, {1.0f, 2.0f, 3.0f, 4.0f});

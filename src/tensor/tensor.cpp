@@ -7,6 +7,7 @@
 #include "tensor/tensor.hpp"
 #include "tensor/buffer.hpp"
 #include "tensor/tensor_utils.hpp"
+#include "utils.hpp"
 
 Tensor::Tensor(Device *device)
     : data_type_(TensorDataType::UNDEFINED), num_elements_(0), buffer_(nullptr), device_(device)
@@ -14,10 +15,20 @@ Tensor::Tensor(Device *device)
 }
 
 Tensor::Tensor(TensorDataType dtype, const std::vector<size_t> &dims, Device *device)
-    : data_type_(dtype), dimensions_(dims), num_elements_(calcNumElements(dims)), device_(device)
+    : data_type_(dtype), num_elements_(calcNumElements(dims)), device_(device)
 {
-    strides_ = calcStrides(dims);
     buffer_ = Buffer::create(device, dtype, num_elements_);
+
+    dimensions_ = dims;
+#ifdef USE_HIP
+    if (device_->getType() == DeviceType::HIP)
+    {
+        hipErrorCheck(hipMalloc(&d_dimensions_, dims.size() * sizeof(size_t)));
+        hipErrorCheck(hipMemcpy(d_dimensions_, dims.data(), dims.size() * sizeof(size_t), hipMemcpyHostToDevice));
+    }
+#endif
+
+    calculateAndSetStrides(dims);
 }
 
 size_t Tensor::calcNumElements(const std::vector<size_t> &dims)
@@ -25,14 +36,22 @@ size_t Tensor::calcNumElements(const std::vector<size_t> &dims)
     return std::accumulate(dims.begin(), dims.end(), 1, std::multiplies<size_t>());
 }
 
-std::vector<size_t> Tensor::calcStrides(const std::vector<size_t> &dims)
+void Tensor::calculateAndSetStrides(const std::vector<size_t> &dims)
 {
     std::vector<size_t> stride(dims.size(), 1);
     for (int i = dims.size() - 2; i >= 0; --i)
     {
         stride[i] = stride[i + 1] * dims[i + 1];
     }
-    return stride;
+    strides_ = stride;
+
+#ifdef USE_HIP
+    if (device_->getType() == DeviceType::HIP)
+    {
+        hipErrorCheck(hipMalloc(&d_strides_, dims.size() * sizeof(size_t)));
+        hipErrorCheck(hipMemcpy(d_strides_, strides_.data(), dims.size() * sizeof(size_t), hipMemcpyHostToDevice));
+    }
+#endif
 }
 
 std::vector<size_t> Tensor::getDims() const
@@ -76,13 +95,29 @@ void Tensor::reshape(const std::vector<size_t> &new_dims)
         throw std::runtime_error("Number of elements mismatch.");
     }
     dimensions_ = new_dims;
-    strides_ = calcStrides(new_dims);
+    calculateAndSetStrides(new_dims);
 }
 
 void Tensor::setDataType(TensorDataType dtype)
 {
     data_type_ = dtype;
     buffer_ = Buffer::create(device_, dtype, num_elements_);
+}
+
+void Tensor::copyFrom(const Tensor &src)
+{
+    // should work if the number of elements is the same
+    if (num_elements_ != src.num_elements_)
+    {
+        throw std::runtime_error("Number of elements mismatch.");
+    }
+
+    if (data_type_ != src.data_type_)
+    {
+        throw std::runtime_error("Data type mismatch.");
+    }
+
+    buffer_->copyFrom(src.buffer_.get());
 }
 
 TensorDataType Tensor::getDataType() const
@@ -305,9 +340,8 @@ void Tensor::to(Device *device)
     }
 }
 
-
-    // void *getDataPointer() override;
-    // const void *getDataPointer() const override;
+// void *getDataPointer() override;
+// const void *getDataPointer() const override;
 
 void *Tensor::getDataPointer()
 {

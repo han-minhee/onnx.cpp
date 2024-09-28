@@ -16,6 +16,12 @@ public:
 
     std::vector<size_t> getDims() const;
     std::vector<size_t> getStrides() const;
+
+#ifdef USE_HIP
+    size_t *getDimsPointer();
+    size_t *getStridesPointer();
+#endif
+
     size_t getNDim() const;
     size_t getNumElements() const;
 
@@ -48,17 +54,26 @@ public:
     void *getDataPointer();
     const void *getDataPointer() const;
 
+    void copyFrom(const Tensor &src);
+
 private:
     Device *device_;
     TensorDataType data_type_;
     std::vector<size_t> dimensions_;
     std::vector<size_t> strides_;
+
+#ifdef USE_HIP
+    size_t *d_dimensions_;
+    size_t *d_strides_;
+
+#endif
+
     size_t num_elements_;
 
     std::shared_ptr<Buffer> buffer_;
 
-    // Helper methods
-    std::vector<size_t> calcStrides(const std::vector<size_t> &dims);
+
+    void calculateAndSetStrides(const std::vector<size_t> &dims);
     size_t calcNumElements(const std::vector<size_t> &dims);
 };
 

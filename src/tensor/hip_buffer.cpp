@@ -180,4 +180,26 @@ std::string HipBuffer::toString(size_t max_elements) const
     return oss.str();
 }
 
+void HipBuffer::copyFrom(const Buffer *src)
+{
+    switch (src->getDeviceType())
+    {
+    case DeviceType::CPU:
+    {
+        const void *src_data = src->getDataPointer();
+        hipErrorCheck(hipMemcpy(data_, src_data, size_in_bytes_, hipMemcpyHostToDevice));
+        break;
+    }
+    case DeviceType::HIP:
+    {
+        const HipBuffer *hip_src = dynamic_cast<const HipBuffer *>(src);
+        hipErrorCheck(hipMemcpy(data_, hip_src->getDataPointer(), size_in_bytes_, hipMemcpyDeviceToDevice));
+        break;
+    }
+
+    default:
+        throw std::runtime_error("Unsupported device type");
+    }
+}
+
 #endif // USE_HIP
