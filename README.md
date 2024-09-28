@@ -1,7 +1,8 @@
-# ONNX.cpp: A simple ONNX engine in HIP
+# ONNX.cpp: A simple ONNX engine with portability in mind
 
 ## HIP Implementation for AMD/NVIDIA GPUs
 - It supports GPU inference on AMD/NVIDIA GPUs through HIP. Currently working on operator implementations and optimizations.
+- For the time being, GPU support is being implemented using HIP, but the ultimate goal is to use SYCL
 
 ## Overview
 **The primary goal of the repo is to demonstrate how an ONNX model works and to provide a building block for a custom ONNX engine. This library is currently not recommended for production.** For now, maybe.
