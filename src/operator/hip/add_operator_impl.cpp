@@ -46,23 +46,10 @@ namespace HIP_OP
     OperatorExecuteResult AddOperatorImpl::execute(const std::vector<Tensor> &inputs, std::vector<Tensor *> &outputs,
                                                    const std::unordered_map<std::string, Node::AttributeValue> &attributes, Device *device)
     {
-        if (inputs.size() != 2)
-        {
-            return OperatorExecuteResult::INPUT_TENSOR_ERROR;
-        }
-        if (outputs.empty() || outputs.size() != 1)
-        {
-            return OperatorExecuteResult::OUTPUT_TENSOR_ERROR;
-        }
 
         const Tensor &A = inputs[0];
         const Tensor &B = inputs[1];
         Tensor *C = outputs[0];
-
-        if (A.getDataType() != B.getDataType())
-        {
-            return OperatorExecuteResult::DATA_TYPE_ERROR;
-        }
 
         TensorDataType dtype = A.getDataType();
         size_t num_elements_C = C->getNumElements();
@@ -82,22 +69,13 @@ namespace HIP_OP
         size_t B_ndims = B_dims.size();
         size_t C_ndims = C_dims.size();
 
-        size_t *d_A_dims, *d_B_dims, *d_C_dims;
-        size_t *d_A_strides, *d_B_strides, *d_C_strides;
+        size_t *d_A_dims = A.d_getDims();
+        size_t *d_B_dims = B.d_getDims();
+        size_t *d_C_dims = C->d_getDims();
 
-        hipErrorCheck(hipMalloc(&d_A_dims, A_ndims * sizeof(size_t)));
-        hipErrorCheck(hipMalloc(&d_B_dims, B_ndims * sizeof(size_t)));
-        hipErrorCheck(hipMalloc(&d_C_dims, C_ndims * sizeof(size_t)));
-        hipErrorCheck(hipMalloc(&d_A_strides, A_ndims * sizeof(size_t)));
-        hipErrorCheck(hipMalloc(&d_B_strides, B_ndims * sizeof(size_t)));
-        hipErrorCheck(hipMalloc(&d_C_strides, C_ndims * sizeof(size_t)));
-
-        hipErrorCheck(hipMemcpy(d_A_dims, A_dims.data(), A_ndims * sizeof(size_t), hipMemcpyHostToDevice));
-        hipErrorCheck(hipMemcpy(d_B_dims, B_dims.data(), B_ndims * sizeof(size_t), hipMemcpyHostToDevice));
-        hipErrorCheck(hipMemcpy(d_C_dims, C_dims.data(), C_ndims * sizeof(size_t), hipMemcpyHostToDevice));
-        hipErrorCheck(hipMemcpy(d_A_strides, A_strides.data(), A_ndims * sizeof(size_t), hipMemcpyHostToDevice));
-        hipErrorCheck(hipMemcpy(d_B_strides, B_strides.data(), B_ndims * sizeof(size_t), hipMemcpyHostToDevice));
-        hipErrorCheck(hipMemcpy(d_C_strides, C_strides.data(), C_ndims * sizeof(size_t), hipMemcpyHostToDevice));
+        size_t *d_A_strides = A.d_getStrides();
+        size_t *d_B_strides = B.d_getStrides();
+        size_t *d_C_strides = C->d_getStrides();
 
         dim3 gridSize((num_elements_C + BLOCK_SIZE - 1) / BLOCK_SIZE);
         dim3 blockSize(BLOCK_SIZE);
@@ -111,20 +89,25 @@ namespace HIP_OP
                                                     static_cast<float *>(C_data), d_C_dims, d_C_strides,
                                                     num_elements_C, A_ndims, B_ndims, C_ndims));
             break;
-        // Add cases for other data types as needed
+        case TensorDataType::FLOAT64:
+            hipKernelLaunchCheck(hipLaunchKernelGGL(add_kernel<double>, gridSize, blockSize, 0, 0,
+                                                    static_cast<const double *>(A_data), d_A_dims, d_A_strides,
+                                                    static_cast<const double *>(B_data), d_B_dims, d_B_strides,
+                                                    static_cast<double *>(C_data), d_C_dims, d_C_strides,
+                                                    num_elements_C, A_ndims, B_ndims, C_ndims));
+            break;
+        case TensorDataType::INT64:
+            hipKernelLaunchCheck(hipLaunchKernelGGL(add_kernel<int64_t>, gridSize, blockSize, 0, 0,
+                                                    static_cast<const int64_t *>(A_data), d_A_dims, d_A_strides,
+                                                    static_cast<const int64_t *>(B_data), d_B_dims, d_B_strides,
+                                                    static_cast<int64_t *>(C_data), d_C_dims, d_C_strides,
+                                                    num_elements_C, A_ndims, B_ndims, C_ndims));
+            break;
         default:
             return OperatorExecuteResult::DATA_TYPE_ERROR;
         }
 
         hipErrorCheck(hipDeviceSynchronize());
-
-        // Clean up
-        hipErrorCheck(hipFree(d_A_dims));
-        hipErrorCheck(hipFree(d_B_dims));
-        hipErrorCheck(hipFree(d_C_dims));
-        hipErrorCheck(hipFree(d_A_strides));
-        hipErrorCheck(hipFree(d_B_strides));
-        hipErrorCheck(hipFree(d_C_strides));
 
         return OperatorExecuteResult::SUCCESS;
     }

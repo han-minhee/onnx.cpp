@@ -59,6 +59,18 @@ std::vector<size_t> Tensor::getDims() const
     return dimensions_;
 }
 
+#ifdef USE_HIP
+size_t *Tensor::d_getDims() const
+{
+    return d_dimensions_;
+}
+
+size_t *Tensor::d_getStrides() const
+{
+    return d_strides_;
+}
+#endif
+
 std::vector<size_t> Tensor::getStrides() const
 {
     return strides_;

@@ -8,20 +8,18 @@
 namespace HIP_OP
 {
 
-    OperatorExecuteResult TransposeOperatorImpl::execute(const std::vector<Tensor> &inputs, std::vector<Tensor *> &outputs,
-                                                   const std::unordered_map<std::string, Node::AttributeValue> &attributes, Device *device)
+    template <typename T>
+    OperatorExecuteResult ExecuteTranspose()
     {
-        // check if the device is a HIP device
-        if (device->getType() != DeviceType::HIP)
-        {
-            throw std::runtime_error("Device is not a HIP device");
-        }
-        else
-        {
-            std::cout << "Device is a HIP device" << std::endl;
-        }
+    }
 
-        return OperatorExecuteResult::NOT_IMPLEMENTED;
+    OperatorExecuteResult TransposeOperatorImpl::execute(const std::vector<Tensor> &inputs, std::vector<Tensor *> &outputs,
+                                                         const std::unordered_map<std::string, Node::AttributeValue> &attributes, Device *device)
+    {
+        const Tensor &input = inputs[0];
+        Tensor *output = outputs[0];
+
+        return OperatorExecuteResult::SUCCESS;
     }
 };
 

@@ -28,6 +28,30 @@ OperatorExecuteResult SoftmaxOperator::execute(const std::vector<Tensor> &inputs
                                                std::vector<Tensor *> &outputs,
                                                const std::unordered_map<std::string, Node::AttributeValue> &attributes, Device *device)
 {
+    if (inputs.size() != 1)
+    {
+        return OperatorExecuteResult::INPUT_TENSOR_ERROR;
+    }
+    if (outputs.empty() || outputs.size() != 1)
+    {
+        return OperatorExecuteResult::OUTPUT_TENSOR_ERROR;
+    }
+
+    const Tensor &input = inputs[0];
+    Tensor *output = outputs[0];
+
+    if (input.getDataType() != output->getDataType())
+    {
+        return OperatorExecuteResult::DATA_TYPE_ERROR;
+    }
+
+    TensorDataType dtype = input.getDataType();
+    const auto &dims = input.getDims();
+    if (dims.size() < 1)
+    {
+        return OperatorExecuteResult::INPUT_TENSOR_ERROR;
+    }
+
     DeviceType deviceType = device->getType();
     switch (deviceType)
     {

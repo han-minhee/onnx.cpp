@@ -56,6 +56,11 @@ public:
 
     void copyFrom(const Tensor &src);
 
+#ifdef USE_HIP
+    size_t *d_getDims() const;
+    size_t *d_getStrides() const;
+#endif
+
 private:
     Device *device_;
     TensorDataType data_type_;
@@ -71,7 +76,6 @@ private:
     size_t num_elements_;
 
     std::shared_ptr<Buffer> buffer_;
-
 
     void calculateAndSetStrides(const std::vector<size_t> &dims);
     size_t calcNumElements(const std::vector<size_t> &dims);

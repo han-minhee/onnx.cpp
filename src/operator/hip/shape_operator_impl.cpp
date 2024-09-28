@@ -7,21 +7,15 @@
 
 namespace HIP_OP
 {
-
     OperatorExecuteResult ShapeOperatorImpl::execute(const std::vector<Tensor> &inputs, std::vector<Tensor *> &outputs,
-                                                       const std::unordered_map<std::string, Node::AttributeValue> &attributes, Device *device)
+                                                     const std::unordered_map<std::string, Node::AttributeValue> &attributes, Device *device)
     {
-        // check if the device is a HIP device
-        if (device->getType() != DeviceType::HIP)
-        {
-            throw std::runtime_error("Device is not a HIP device");
-        }
-        else
-        {
-            std::cout << "Device is a HIP device" << std::endl;
-        }
-
-        return OperatorExecuteResult::NOT_IMPLEMENTED;
+        const Tensor &input = inputs[0];
+        Tensor *output = outputs[0];
+        std::vector<size_t> dims = input.getDims();
+        std::vector<int64_t> dims_int64(dims.begin(), dims.end());
+        output->setData<int64_t>(dims_int64);
+        return OperatorExecuteResult::SUCCESS;
     }
 };
 
