@@ -96,6 +96,8 @@ void run_and_check_operator(const OperatorRegistry::OperatorFunctions *op,
         for (size_t i = 0; i < output_shapes.size(); i++)                                                      \
         {                                                                                                      \
             outputs.push_back(new Tensor(output_data_types[i], output_shapes[i], device));                     \
+            \ 
+                                                                                                         \
         }                                                                                                      \
                                                                                                                \
         run_and_check_operator(op, input_tensors, outputs, expected_tensors, attributes,                       \
@@ -541,20 +543,21 @@ TEST(OperatorTestHIP, SoftmaxOperatorBasic)
 // //     RUN_TEST_CASE(OperatorType::Split, inputs, expected_tensors, attributes, DeviceType::CPU, OperatorExecuteResult::SHAPE_MISMATCH_ERROR);
 // // }
 
-// // ----------------------- TransposeOperator Tests -----------------------
-// TEST(OperatorTestHIP, TransposeOperatorBasic)
-// {
-//     // Basic transpose test
-//     Tensor data(TensorDataType::FLOAT32, {2, 3}, {1, 2, 3, 4, 5, 6});
-//     Tensor expected(TensorDataType::FLOAT32, {3, 2}, {1, 4, 2, 5, 3, 6});
-//     std::unordered_map<std::string, Node::AttributeValue> attributes;
-//     attributes["perm"] = std::vector<int64_t>{1, 0};
+// ----------------------- TransposeOperator Tests -----------------------
+TEST(OperatorTestHIP, TransposeOperatorBasic)
+{
+    // Basic transpose test
+    HipDevice hipDevice = HipDevice(0);
+    Tensor input(TensorDataType::FLOAT32, {2, 3}, std::vector<float>{1, 2, 3, 4, 5, 6}, &hipDevice);
+    Tensor expected(TensorDataType::FLOAT32, {3, 2}, std::vector<float>{1, 4, 2, 5, 3, 6}, &hipDevice);
+    std::unordered_map<std::string, Node::AttributeValue> attributes;
+    attributes["perm"] = std::vector<int64_t>{1, 0};
 
-//     std::vector<Tensor> inputs = {data};
-//     std::vector<Tensor> expected_tensors = {expected};
+    std::vector<Tensor> inputs = {input};
+    std::vector<Tensor> expected_tensors = {expected};
 
-//     RUN_TEST_CASE(OperatorType::Transpose, inputs, expected_tensors, attributes, OperatorExecuteResult::SUCCESS, &hipDevice);
-// }
+    RUN_TEST_CASE(OperatorType::Transpose, inputs, expected_tensors, attributes, OperatorExecuteResult::SUCCESS, &hipDevice);
+}
 
 // // ----------------------- ReshapeOperator Tests -----------------------
 // TEST(OperatorTestHIP, ReshapeOperatorBasic)
