@@ -19,6 +19,11 @@ namespace TensorUtils
             return sizeof(int8_t);
         case TensorDataType::UINT8:
             return sizeof(uint8_t);
+
+        // custom types
+        case TensorDataType::FLOAT16:
+            return sizeof(half_t);
+
         case TensorDataType::UNDEFINED:
             return 0;
         default:
@@ -41,6 +46,11 @@ namespace TensorUtils
             return "INT8";
         case TensorDataType::UINT8:
             return "UINT8";
+
+        // custom types
+        case TensorDataType::FLOAT16:
+            return "FLOAT16";
+
         case TensorDataType::UNDEFINED:
             return "UNDEFINED";
         default:
@@ -197,6 +207,20 @@ namespace TensorUtils
         {
             const uint8_t *lhs_data = lhs.data<uint8_t>();
             const uint8_t *rhs_data = rhs.data<uint8_t>();
+            for (size_t i = 0; i < lhs.getNumElements(); ++i)
+            {
+                if (lhs_data[i] != rhs_data[i])
+                {
+                    return TensorCompareResult::DATA_MISMATCH;
+                }
+            }
+            break;
+        }
+        // custom types
+        case TensorDataType::FLOAT16:
+        {
+            const half_t *lhs_data = lhs.data<half_t>();
+            const half_t *rhs_data = rhs.data<half_t>();
             for (size_t i = 0; i < lhs.getNumElements(); ++i)
             {
                 if (lhs_data[i] != rhs_data[i])

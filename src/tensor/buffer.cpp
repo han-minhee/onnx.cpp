@@ -100,3 +100,6 @@ template void Buffer::setData<int>(const std::vector<int> &);
 template void Buffer::setData<long>(const std::vector<long> &);
 template void Buffer::setData<signed char>(const std::vector<signed char> &);
 template void Buffer::setData<unsigned char>(const std::vector<unsigned char> &);
+
+// custom types
+template void Buffer::setData<half_t>(const std::vector<half_t> &);

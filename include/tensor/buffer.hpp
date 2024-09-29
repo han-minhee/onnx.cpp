@@ -7,6 +7,8 @@
 #include <memory>
 #include <stdexcept>
 #include <cstring> // For memcpy
+
+#include "types/half_t.hpp"
 #include "enums.hpp"
 #include "device/device.hpp"
 #include "device/device_cpu.hpp"

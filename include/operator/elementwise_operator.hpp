@@ -6,6 +6,7 @@
 #include "tensor/tensor.hpp"
 #include "operator/operator.hpp"
 
+
 std::vector<std::vector<size_t>> inferElementwiseOutputShapes(const std::vector<Tensor> &inputs);
 std::vector<TensorDataType> inferElementwiseOutputDataTypes(const std::vector<Tensor> &inputs);
 

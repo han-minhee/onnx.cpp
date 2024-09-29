@@ -19,8 +19,6 @@ enum class TensorDataType
     INT64,
     INT8,
     UINT8,
-
-    /// XXX: Should "half" included in the CPU backend? AVX512 can use float16, but what about non-AVX512 implementations?
     FLOAT16
 };
 

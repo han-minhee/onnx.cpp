@@ -5,6 +5,7 @@
 #include <string>
 
 #include "enums.hpp"
+#include "types/half_t.hpp"
 #include "tensor/tensor.hpp"
 
 namespace TensorUtils
@@ -33,6 +34,9 @@ namespace TensorUtils
     DEFINE_CPP_TYPE_TO_TENSOR_TYPE(int64_t, TensorDataType::INT64)
     DEFINE_CPP_TYPE_TO_TENSOR_TYPE(int8_t, TensorDataType::INT8)
     DEFINE_CPP_TYPE_TO_TENSOR_TYPE(uint8_t, TensorDataType::UINT8)
+
+    // Custom half type
+    DEFINE_CPP_TYPE_TO_TENSOR_TYPE(half_t, TensorDataType::FLOAT16)
 
 #undef DEFINE_CPP_TYPE_TO_TENSOR_TYPE
 }

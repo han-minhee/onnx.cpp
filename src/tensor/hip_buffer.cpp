@@ -171,6 +171,15 @@ std::string HipBuffer::toString(size_t max_elements) const
     case TensorDataType::INT8:
         printData(static_cast<int8_t *>(host_data));
         break;
+    case TensorDataType::UINT8:
+        printData(static_cast<uint8_t *>(host_data));
+        break;
+
+    // custom types
+    case TensorDataType::FLOAT16:
+        printData(static_cast<half_t *>(host_data));
+        break;
+        
     default:
         oss << "Unsupported data type";
     }

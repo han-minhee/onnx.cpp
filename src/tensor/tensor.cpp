@@ -278,6 +278,15 @@ std::string Tensor::toString() const
         printData(reinterpret_cast<const int *>(data<int8_t>()));
         break;
 
+    case TensorDataType::UINT8:
+        printData(reinterpret_cast<const int *>(data<uint8_t>()));
+        break;
+
+    // custom types
+    case TensorDataType::FLOAT16:
+        printData(data<half_t>());
+        break;
+
     default:
         oss << "Unsupported data type";
     }
@@ -298,6 +307,26 @@ void Tensor::allocateBuffer(TensorDataType dtype, size_t num_elements)
     }
 }
 
+void Tensor::to(Device *device)
+{
+    if (device->getType() != device_->getType())
+    {
+        Buffer *new_buffer = buffer_->to(device);
+        buffer_ = std::shared_ptr<Buffer>(new_buffer);
+        device_ = device;
+    }
+}
+
+void *Tensor::getDataPointer()
+{
+    return buffer_->getDataPointer();
+}
+
+const void *Tensor::getDataPointer() const
+{
+    return buffer_->getDataPointer();
+}
+
 #define INSTANTIATE_TENSOR_TEMPLATE(T)         \
     template T *Tensor::data<T>();             \
     template const T *Tensor::data<T>() const; \
@@ -310,6 +339,9 @@ INSTANTIATE_TENSOR_TEMPLATE(int32_t)
 INSTANTIATE_TENSOR_TEMPLATE(int64_t)
 INSTANTIATE_TENSOR_TEMPLATE(int8_t)
 INSTANTIATE_TENSOR_TEMPLATE(uint8_t)
+
+// custom types
+INSTANTIATE_TENSOR_TEMPLATE(half_t)
 
 #undef INSTANTIATE_TENSOR_TEMPLATE
 
@@ -363,32 +395,16 @@ Tensor create_tensor(TensorDataType dtype, const std::vector<size_t> &dims, cons
         break;
     }
 
+    case TensorDataType::FLOAT16:
+    {
+        std::vector<half_t> data_half(data.begin(), data.end());
+        tensor.setData<half_t>(data_half);
+        break;
+    }
+
     default:
         throw std::invalid_argument("Unsupported TensorDataType for create_tensor.");
     }
 
     return tensor;
-}
-
-void Tensor::to(Device *device)
-{
-    if (device->getType() != device_->getType())
-    {
-        Buffer *new_buffer = buffer_->to(device);
-        buffer_ = std::shared_ptr<Buffer>(new_buffer);
-        device_ = device;
-    }
-}
-
-// void *getDataPointer() override;
-// const void *getDataPointer() const override;
-
-void *Tensor::getDataPointer()
-{
-    return buffer_->getDataPointer();
-}
-
-const void *Tensor::getDataPointer() const
-{
-    return buffer_->getDataPointer();
 }

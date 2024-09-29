@@ -64,6 +64,14 @@ Tensor NpyParser::load(const std::string &file_path)
         fread(tensor.data<uint8_t>(), sizeof(uint8_t), num_elements, file);
         break;
     }
+
+    // custom types
+    case TensorDataType::FLOAT16:
+    {
+        fread(tensor.data<half_t>(), sizeof(half_t), num_elements, file);
+        break;
+    }
+
     // case TensorDataType::BOOL: {
     //     fread(tensor.data<bool>(), sizeof(bool), num_elements, file);
     //     break;
@@ -175,6 +183,10 @@ TensorDataType NpyParser::determineDataType(const std::string &dtype_str)
         return TensorDataType::INT8;
     if (dtype_str == "|u1")
         return TensorDataType::UINT8;
+
+    if (dtype_str == "<f2" || dtype_str == "|f2")
+        return TensorDataType::FLOAT16;
+
     // if (dtype_str == "|b1") return TensorDataType::BOOL;
     throw std::runtime_error("Unsupported dtype: " + dtype_str);
 }

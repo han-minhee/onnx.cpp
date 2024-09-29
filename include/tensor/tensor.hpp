@@ -5,6 +5,7 @@
 #include <vector>
 #include <memory>
 
+#include "types/half_t.hpp"
 #include "device/device.hpp"
 #include "tensor/buffer.hpp"
 
