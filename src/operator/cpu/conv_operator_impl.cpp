@@ -78,19 +78,10 @@ namespace CPU_OP
         bool has_bias = inputs.size() == 3;
         const Tensor *B = has_bias ? &inputs.at(2) : nullptr;
 
-        if (outputs.empty() || outputs[0] == nullptr)
-        {
-            return OperatorExecuteResult::OUTPUT_TENSOR_ERROR;
-        }
-
+        Tensor *Y = outputs[0];
+        
         const std::vector<size_t> &X_dims = X.getDims(); // (N, C, H, W)
         const std::vector<size_t> &W_dims = W.getDims(); // (M, C/group, kH, kW)
-
-        // Check dimensions
-        if (X_dims.size() != 4 || W_dims.size() != 4)
-        {
-            return OperatorExecuteResult::SHAPE_MISMATCH_ERROR; // supports 4D tensors
-        }
 
         // Get attributes with defaults
         std::string auto_pad = "NOTSET";
@@ -132,9 +123,6 @@ namespace CPU_OP
         size_t H_out = static_cast<size_t>(std::floor((H + pads[0] + pads[2] - (kH - 1) * dilations[0] - 1) / strides[0] + 1));
         size_t W_out = static_cast<size_t>(std::floor((W_in + pads[1] + pads[3] - (kW - 1) * dilations[1] - 1) / strides[1] + 1));
 
-        Tensor *Y = outputs[0];
-
-        // Use appropriate data type for execution
         switch (X.getDataType())
         {
         case TensorDataType::FLOAT32:

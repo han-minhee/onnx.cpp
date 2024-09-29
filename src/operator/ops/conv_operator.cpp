@@ -71,11 +71,19 @@ OperatorExecuteResult ConvOperator::execute(const std::vector<Tensor> &inputs, s
                                             const std::unordered_map<std::string, Node::AttributeValue> &attributes, Device *device)
 {
 
+    if (outputs.empty() || outputs[0] == nullptr)
+    {
+        return OperatorExecuteResult::OUTPUT_TENSOR_ERROR;
+    }
+
     if (inputs.size() < 2)
     {
         return OperatorExecuteResult::INPUT_TENSOR_ERROR;
     }
-    
+    if (inputs[0].getNDim() != 4 || inputs[1].getNDim() != 4)
+    {
+        return OperatorExecuteResult::SHAPE_MISMATCH_ERROR; // supports 4D tensors
+    }
 
     DeviceType deviceType = device->getType();
 

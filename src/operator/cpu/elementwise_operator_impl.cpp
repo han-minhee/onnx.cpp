@@ -11,18 +11,7 @@ namespace CPU_OP
                                                       Operation op)
     {
         const size_t num_elements = output->getNumElements();
-
-        if (!output->getBuffer() || output->getNumElements() != num_elements)
-        {
-            output->allocateBuffer(output->getDataType(), num_elements);
-        }
-
         T *output_data = output->data<T>();
-        if (!output_data)
-        {
-            return OperatorExecuteResult::MEMORY_ALLOCATION_ERROR;
-        }
-
         std::vector<const T *> input_data_ptrs(inputs.size());
         std::vector<std::vector<size_t>> adjusted_shapes(inputs.size());
 
@@ -96,5 +85,4 @@ namespace CPU_OP
     INSTANTIATE_ELEMENTWISE_OPERATION(int64_t)
     INSTANTIATE_ELEMENTWISE_OPERATION(int8_t)
     INSTANTIATE_ELEMENTWISE_OPERATION(uint8_t)
-
 }
