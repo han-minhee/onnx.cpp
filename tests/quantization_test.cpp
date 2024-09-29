@@ -7,6 +7,10 @@
 #include "device/device.hpp"
 #include "device/device_cpu.hpp"
 
+#ifdef USE_HIP
+#include "device/device_hip.hpp"
+#endif
+
 void PrintTo(OperatorExecuteResult result, std::ostream *os)
 {
     *os << OperatorUtils::OperatorExecuteResultToString(result);
@@ -129,6 +133,22 @@ TEST(QuantizationTestCPU, AddOperatorBasic)
     std::vector<Tensor> expected_tensors = {expected};
 
     RUN_TEST_CASE(OperatorType::Add, inputs, expected_tensors, attributes, OperatorExecuteResult::SUCCESS, &cpuDevice);
+}
+
+// ----------------------- AddOperator Tests -----------------------
+TEST(QuantizationTestHIP, AddOperatorBasic)
+{
+    HipDevice hipDevice = HipDevice(0);
+
+    Tensor t1(TensorDataType::FLOAT16, {2, 3}, std::vector<half_t>{1.0f, 2.0f, 3.0f, 4.0f, 3.0f, 4.0f}, &hipDevice);
+    Tensor t2(TensorDataType::FLOAT16, {2, 3}, std::vector<half_t>{5.0f, 6.0f, 7.0f, 8.0f, 3.0f, 4.0f}, &hipDevice);
+    Tensor expected(TensorDataType::FLOAT16, {2, 3}, std::vector<half_t>{6.0f, 8.0f, 10.0f, 12.0f, 6.0f, 8.0f}, &hipDevice);
+    std::unordered_map<std::string, Node::AttributeValue> attributes;
+
+    std::vector<Tensor> inputs = {t1, t2};
+    std::vector<Tensor> expected_tensors = {expected};
+
+    RUN_TEST_CASE(OperatorType::Add, inputs, expected_tensors, attributes, OperatorExecuteResult::SUCCESS, &hipDevice);
 }
 
 // TEST(OperatorTestHIP, AddOperatorBroadcastScalar)
