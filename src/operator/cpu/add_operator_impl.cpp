@@ -1,6 +1,10 @@
 #include "operator/operators.hpp"
 #include "operator/elementwise_operator.hpp"
 
+/// FIXME: defining the lambda function inside the opertor doesn't work, but is it okay to define the lambda function here?
+auto half_add = [](half_t a, half_t b)
+{ return a + b; };
+
 namespace CPU_OP
 {
     OperatorExecuteResult AddOperatorImpl::execute(const std::vector<Tensor> &inputs, std::vector<Tensor *> &outputs,
@@ -38,6 +42,10 @@ namespace CPU_OP
         case TensorDataType::UINT8:
             return executeElementwiseOperation<uint8_t>(inputs, output, input_strides, output_strides, output_shape,
                                                         std::plus<uint8_t>());
+
+        // for custom data types, give the operation as a lambda function
+        case TensorDataType::FLOAT16:
+            return executeElementwiseOperation<half_t>(inputs, output, input_strides, output_strides, output_shape, half_add);
         default:
             return OperatorExecuteResult::UNSUPPORTED_OPERATION;
         }
