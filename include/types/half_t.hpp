@@ -61,78 +61,94 @@ struct half_t
 #endif
     }
 
-    // Conversion to int
+    // Define the += operator
 #ifdef USE_HIP
     __host__ __device__
 #endif
-        explicit
-        operator int() const
+        half_t &
+        operator+=(const half_t &rhs)
     {
 #ifdef USE_HIP
 #ifdef __HIP_DEVICE_COMPILE__
-        return static_cast<int>(__half2float(value));
+        value = __hadd(value, rhs.value); // Use HIP intrinsic for addition
 #else
-        return static_cast<int>(static_cast<float>(value));
+        value = hf::half(static_cast<float>(*this) + static_cast<float>(rhs));
 #endif
 #else
-        return static_cast<int>(static_cast<float>(value));
+        value = hf::half(static_cast<float>(*this) + static_cast<float>(rhs));
 #endif
+        return *this;
     }
 
-    // Conversion to double
+    // Define the -= operator
 #ifdef USE_HIP
     __host__ __device__
 #endif
-        explicit
-        operator double() const
+        half_t &
+        operator-=(const half_t &rhs)
     {
 #ifdef USE_HIP
 #ifdef __HIP_DEVICE_COMPILE__
-        return static_cast<double>(__half2float(value));
+        value = __hsub(value, rhs.value); // Use HIP intrinsic for subtraction
 #else
-        return static_cast<double>(static_cast<float>(value));
+        value = hf::half(static_cast<float>(*this) - static_cast<float>(rhs));
 #endif
 #else
-        return static_cast<double>(static_cast<float>(value));
+        value = hf::half(static_cast<float>(*this) - static_cast<float>(rhs));
 #endif
+        return *this;
     }
 
-    // Conversion to int64_t
+    // Define the *= operator
 #ifdef USE_HIP
     __host__ __device__
 #endif
-        explicit
-        operator int64_t() const
+        half_t &
+        operator*=(const half_t &rhs)
     {
 #ifdef USE_HIP
 #ifdef __HIP_DEVICE_COMPILE__
-        return static_cast<int64_t>(__half2float(value));
+        value = __hmul(value, rhs.value); // Use HIP intrinsic for multiplication
 #else
-        return static_cast<int64_t>(static_cast<float>(value));
+        value = hf::half(static_cast<float>(*this) * static_cast<float>(rhs));
 #endif
 #else
-        return static_cast<int64_t>(static_cast<float>(value));
+        value = hf::half(static_cast<float>(*this) * static_cast<float>(rhs));
 #endif
+        return *this;
     }
 
-    // Conversion to size_t
+    // Define the /= operator
 #ifdef USE_HIP
     __host__ __device__
 #endif
-        explicit
-        operator size_t() const
+        half_t &
+        operator/=(const half_t &rhs)
     {
 #ifdef USE_HIP
 #ifdef __HIP_DEVICE_COMPILE__
-        return static_cast<size_t>(__half2float(value));
+        value = __hdiv(value, rhs.value); // Use HIP intrinsic for division
 #else
-        return static_cast<size_t>(static_cast<float>(value));
+        value = hf::half(static_cast<float>(*this) / static_cast<float>(rhs));
 #endif
 #else
-        return static_cast<size_t>(static_cast<float>(value));
+        value = hf::half(static_cast<float>(*this) / static_cast<float>(rhs));
 #endif
+        return *this;
     }
 
+    // Define the assignment operator to prevent compiler issues
+#ifdef USE_HIP
+    __host__ __device__
+#endif
+        half_t &
+        operator=(const half_t &rhs)
+    {
+        value = rhs.value;
+        return *this;
+    }
+
+    // Explicit conversions (already provided)
 #ifdef USE_HIP
 #ifdef __HIP_DEVICE_COMPILE__
     __half value; // Device-side representation
