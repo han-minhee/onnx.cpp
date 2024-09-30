@@ -34,6 +34,8 @@ namespace CPU_OP
             return executeSigmoid<float>(inputs, output);
         case TensorDataType::FLOAT64:
             return executeSigmoid<double>(inputs, output);
+        case TensorDataType::FLOAT16:
+            return executeSigmoid<half_t>(inputs, output);
 
         default:
             return OperatorExecuteResult::UNSUPPORTED_OPERATION;

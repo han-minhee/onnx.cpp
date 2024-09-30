@@ -12,7 +12,7 @@ namespace CPU_OP
         Tensor *output = outputs[0];
         const TensorDataType dataType = inputs[0].getDataType();
         std::vector<size_t> output_shape = output->getDims();
-        
+
         std::vector<size_t> output_strides = output->getStrides();
         std::vector<std::vector<size_t>> input_strides(inputs.size());
         for (size_t idx = 0; idx < inputs.size(); ++idx)
@@ -40,6 +40,9 @@ namespace CPU_OP
         case TensorDataType::UINT8:
             return executeElementwiseOperation<uint8_t>(inputs, output, input_strides, output_strides, output_shape,
                                                         std::multiplies<uint8_t>());
+        case TensorDataType::FLOAT16:
+            return executeElementwiseOperation<half_t>(inputs, output, input_strides, output_strides, output_shape,
+                                                       std::multiplies<half_t>());
         default:
             return OperatorExecuteResult::UNSUPPORTED_OPERATION;
         }

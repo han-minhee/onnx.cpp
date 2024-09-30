@@ -102,6 +102,37 @@ namespace HIP_OP
                                                     static_cast<int64_t *>(C_data), d_C_dims, d_C_strides,
                                                     num_elements_C, A_ndims, B_ndims, C_ndims));
             break;
+        case TensorDataType::INT32:
+            hipKernelLaunchCheck(hipLaunchKernelGGL(add_kernel<int32_t>, gridSize, blockSize, 0, 0,
+                                                    static_cast<const int32_t *>(A_data), d_A_dims, d_A_strides,
+                                                    static_cast<const int32_t *>(B_data), d_B_dims, d_B_strides,
+                                                    static_cast<int32_t *>(C_data), d_C_dims, d_C_strides,
+                                                    num_elements_C, A_ndims, B_ndims, C_ndims));
+            break;
+        case TensorDataType::INT8:
+            hipKernelLaunchCheck(hipLaunchKernelGGL(add_kernel<int8_t>, gridSize, blockSize, 0, 0,
+                                                    static_cast<const int8_t *>(A_data), d_A_dims, d_A_strides,
+                                                    static_cast<const int8_t *>(B_data), d_B_dims, d_B_strides,
+                                                    static_cast<int8_t *>(C_data), d_C_dims, d_C_strides,
+                                                    num_elements_C, A_ndims, B_ndims, C_ndims));
+            break;
+
+        case TensorDataType::UINT8:
+            hipKernelLaunchCheck(hipLaunchKernelGGL(add_kernel<uint8_t>, gridSize, blockSize, 0, 0,
+                                                    static_cast<const uint8_t *>(A_data), d_A_dims, d_A_strides,
+                                                    static_cast<const uint8_t *>(B_data), d_B_dims, d_B_strides,
+                                                    static_cast<uint8_t *>(C_data), d_C_dims, d_C_strides,
+                                                    num_elements_C, A_ndims, B_ndims, C_ndims));
+            break;
+
+        case TensorDataType::FLOAT16:
+            hipKernelLaunchCheck(hipLaunchKernelGGL(add_kernel<half_t>, gridSize, blockSize, 0, 0,
+                                                    static_cast<const half_t *>(A_data), d_A_dims, d_A_strides,
+                                                    static_cast<const half_t *>(B_data), d_B_dims, d_B_strides,
+                                                    static_cast<half_t *>(C_data), d_C_dims, d_C_strides,
+                                                    num_elements_C, A_ndims, B_ndims, C_ndims));
+            break;
+
         default:
             return OperatorExecuteResult::DATA_TYPE_ERROR;
         }

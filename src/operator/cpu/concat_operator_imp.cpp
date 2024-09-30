@@ -89,6 +89,9 @@ namespace CPU_OP
             return executeConcat<int8_t>(inputs, output, axis);
         case TensorDataType::UINT8:
             return executeConcat<uint8_t>(inputs, output, axis);
+
+        case TensorDataType::FLOAT16:
+            return executeConcat<half_t>(inputs, output, axis);
         default:
             return OperatorExecuteResult::UNSUPPORTED_OPERATION;
         }

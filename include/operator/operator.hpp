@@ -6,6 +6,7 @@
 #include <unordered_map>
 #include <memory>
 
+#include "types/half_t.hpp"
 #include "graph/node.hpp"
 #include "tensor/tensor.hpp"
 #include "device/device.hpp"

@@ -47,7 +47,9 @@ namespace CPU_OP
                                         {
                                             size_t input_idx = n * (C * H * W_in) + (g * C / group + c) * (H * W_in) + h_in * W_in + w_in;
                                             size_t weight_idx = (g * M / group + m) * (C / group * kH * kW) + c * (kH * kW) + kh * kW + kw;
-                                            sum += input_data[input_idx] * weight_data[weight_idx];
+                                            
+                                            /// XXX: += is not supported for half_t
+                                            sum = sum + input_data[input_idx] * weight_data[weight_idx];
                                         }
                                     }
                                 }
@@ -55,7 +57,7 @@ namespace CPU_OP
 
                             if (bias_data)
                             {
-                                sum += bias_data[g * M / group + m];
+                                sum = sum + bias_data[g * M / group + m];
                             }
 
                             size_t output_idx = n * (M * H_out * W_out) + (g * M / group + m) * (H_out * W_out) + h_out * W_out + w_out;
@@ -137,6 +139,10 @@ namespace CPU_OP
             return executeConv<int8_t>(X, W, B, Y, pads, strides, dilations, group, N, C, H, W_in, M, kH, kW, H_out, W_out);
         case TensorDataType::UINT8:
             return executeConv<uint8_t>(X, W, B, Y, pads, strides, dilations, group, N, C, H, W_in, M, kH, kW, H_out, W_out);
+        
+        case TensorDataType::FLOAT16:
+            return executeConv<half_t>(X, W, B, Y, pads, strides, dilations, group, N, C, H, W_in, M, kH, kW, H_out, W_out);
+
         default:
             return OperatorExecuteResult::DATA_TYPE_ERROR;
         }

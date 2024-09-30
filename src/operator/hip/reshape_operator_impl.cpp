@@ -131,6 +131,8 @@ namespace HIP_OP
             return executeReshapeHIP<int8_t>(input_tensor, shape_tensor, output_tensor, allowzero);
         case TensorDataType::UINT8:
             return executeReshapeHIP<uint8_t>(input_tensor, shape_tensor, output_tensor, allowzero);
+        case TensorDataType::FLOAT16:
+            return executeReshapeHIP<half_t>(input_tensor, shape_tensor, output_tensor, allowzero);
         default:
             return OperatorExecuteResult::UNSUPPORTED_OPERATION;
         }

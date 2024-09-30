@@ -71,7 +71,10 @@ void CpuBuffer::setData(const std::vector<T> &data)
 {
     if (sizeof(T) * data.size() != this->getSizeInBytes())
     {
-        throw std::runtime_error("Data size mismatch.");
+        // print the size of the data and the size of the buffer
+        std::cerr << "Buffer size mismatch." << std::endl;
+        std::cerr << "Data size: " << sizeof(T) * data.size() << std::endl;
+        std::cerr << "Buffer size: " << this->getSizeInBytes() << std::endl;
     }
     std::memcpy(getDataPointer(), data.data(), data.size() * sizeof(T));
 }

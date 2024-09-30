@@ -58,6 +58,20 @@ OperatorExecuteResult MatMulOperator::execute(const std::vector<Tensor> &inputs,
                                               std::vector<Tensor *> &outputs,
                                               const std::unordered_map<std::string, Node::AttributeValue> &attributes, Device *device)
 {
+    const void *A_data = inputs[0].getDataPointer();
+    const void *B_data = inputs[1].getDataPointer();
+
+    if (!A_data || !B_data)
+    {
+        return OperatorExecuteResult::INPUT_TENSOR_ERROR;
+    }
+
+    void* Y_data = outputs[0]->getDataPointer();
+    if (!Y_data)
+    {
+        return OperatorExecuteResult::MEMORY_ALLOCATION_ERROR;
+    }
+
     DeviceType deviceType = device->getType();
     switch (deviceType)
     {

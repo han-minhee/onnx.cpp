@@ -125,6 +125,23 @@ OperatorExecuteResult MaxPoolOperator::execute(
     const std::vector<Tensor> &inputs, std::vector<Tensor *> &outputs,
     const std::unordered_map<std::string, Node::AttributeValue> &attributes, Device *device)
 {
+    if (!inputs[0].getDataPointer())
+    {
+        return OperatorExecuteResult::INPUT_TENSOR_ERROR;
+    }
+
+    Tensor *Y = outputs[0];
+    size_t output_size = Y->getNumElements();
+    if (!Y->getDataPointer() || Y->getNumElements() != output_size)
+    {
+        return OperatorExecuteResult::OUTPUT_TENSOR_ERROR;
+    }
+
+    void *output_data = Y->getDataPointer();
+    if (!output_data)
+    {
+        return OperatorExecuteResult::MEMORY_ALLOCATION_ERROR;
+    }
 
     if (inputs.size() < 1 || outputs.empty() || outputs[0] == nullptr)
     {

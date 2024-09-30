@@ -144,6 +144,8 @@ namespace HIP_OP
             return executeConcatHIP<int8_t>(inputs, output, axis);
         case TensorDataType::UINT8:
             return executeConcatHIP<uint8_t>(inputs, output, axis);
+        case TensorDataType::FLOAT16:
+            return executeConcatHIP<half_t>(inputs, output, axis);
         default:
             return OperatorExecuteResult::UNSUPPORTED_OPERATION;
         }
