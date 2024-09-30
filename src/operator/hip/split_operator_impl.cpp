@@ -167,12 +167,12 @@ namespace HIP_OP
                                                     split_sizes.size(), axis, outer_dim, inner_dim, input_axis_dim));
             break;
         case TensorDataType::FLOAT16:
-            hipKernelLaunchCheck(hipLaunchKernelGGL(split_kernel<__half>, gridSize, blockSize, 0, 0,
-                                                    static_cast<const __half *>(input_data),
-                                                    reinterpret_cast<__half **>(d_output_data),
+            hipKernelLaunchCheck(hipLaunchKernelGGL(split_kernel<half_t>, gridSize, blockSize, 0, 0,
+                                                    static_cast<const half_t *>(input_data),
+                                                    reinterpret_cast<half_t **>(d_output_data),
                                                     input.getDims().data(), d_split_sizes,
                                                     split_sizes.size(), axis, outer_dim, inner_dim, input_axis_dim));
-
+            break;
         default:
             hipErrorCheck(hipFree(d_split_sizes));
             hipErrorCheck(hipFree(d_output_data));

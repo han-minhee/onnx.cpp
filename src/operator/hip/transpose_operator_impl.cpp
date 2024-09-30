@@ -11,32 +11,6 @@
 
 namespace HIP_OP
 {
-    // Specialized kernel for __half
-    __global__ void transpose_kernel_half(const __half *__restrict__ input_data, const size_t *__restrict__ input_dims,
-                                          const size_t *__restrict__ input_strides, __half *__restrict__ output_data,
-                                          const size_t *__restrict__ output_strides, const size_t *__restrict__ perm,
-                                          size_t num_elements, size_t rank)
-    {
-        size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
-        if (idx >= num_elements)
-            return;
-
-        size_t remaining = idx;
-        size_t input_indices[MAX_DIMS];
-        for (int i = rank - 1; i >= 0; --i)
-        {
-            input_indices[i] = remaining % input_dims[i];
-            remaining /= input_dims[i];
-        }
-
-        size_t output_linear_idx = 0;
-        for (int i = 0; i < rank; ++i)
-        {
-            output_linear_idx += input_indices[perm[i]] * output_strides[i];
-        }
-
-        output_data[output_linear_idx] = input_data[idx];
-    }
 
     // Template for general types
     template <typename T>
@@ -64,34 +38,6 @@ namespace HIP_OP
         }
 
         output_data[output_linear_idx] = input_data[idx];
-    }
-
-    // Specialized executeTranspose for __half
-    OperatorExecuteResult executeTranspose_half(const Tensor &input_tensor, Tensor *output_tensor, const std::vector<size_t> &perm, size_t num_elements, size_t rank)
-    {
-        const void *input_data = input_tensor.getDataPointer();
-        void *output_data = output_tensor->getDataPointer();
-
-        // Allocate memory for permutation on the device
-        size_t *d_perm;
-        hipErrorCheck(hipMalloc(&d_perm, rank * sizeof(size_t)));
-        hipErrorCheck(hipMemcpy(d_perm, perm.data(), rank * sizeof(size_t), hipMemcpyHostToDevice));
-
-        dim3 gridSize((num_elements + BLOCK_SIZE - 1) / BLOCK_SIZE);
-        dim3 blockSize(BLOCK_SIZE);
-
-        const __half *input_data_half = static_cast<const __half *>(input_data);
-        __half *output_data_half = static_cast<__half *>(output_data);
-
-        // Launch the specialized __half kernel
-        hipKernelLaunchCheck(hipLaunchKernelGGL(transpose_kernel_half, gridSize, blockSize, 0, 0,
-                                                input_data_half, input_tensor.d_getDims(), input_tensor.d_getStrides(),
-                                                output_data_half, output_tensor->d_getStrides(), d_perm,
-                                                num_elements, rank));
-
-        hipErrorCheck(hipFree(d_perm));
-
-        return OperatorExecuteResult::SUCCESS;
     }
 
     // Template for general executeTranspose
@@ -162,7 +108,7 @@ namespace HIP_OP
         case TensorDataType::UINT8:
             return executeTranspose<uint8_t>(input_tensor, output_tensor, perm, num_elements, rank);
         case TensorDataType::FLOAT16:
-            return executeTranspose_half(input_tensor, output_tensor, perm, num_elements, rank);
+            return executeTranspose<half_t>(input_tensor, output_tensor, perm, num_elements, rank);
         default:
             return OperatorExecuteResult::DATA_TYPE_ERROR;
         }

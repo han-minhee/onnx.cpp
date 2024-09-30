@@ -7,9 +7,8 @@
 #include <hip/hip_runtime.h>
 
 #define hipErrorCheck(ans)                  \
-   {                                        \
-      hipAssert((ans), __FILE__, __LINE__); \
-   }
+      hipAssert((ans), __FILE__, __LINE__); 
+      
 inline void hipAssert(hipError_t code, const char *file, int line, bool abort = true)
 {
    if (code != hipSuccess)

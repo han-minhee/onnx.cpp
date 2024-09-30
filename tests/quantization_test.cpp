@@ -314,14 +314,14 @@ TEST(QuantizationTestHIP, ConvOperatorBasic)
     HipDevice hipDevice = HipDevice(0);
     Tensor X(TensorDataType::FLOAT16, {1, 1, 4, 4},
              std::vector<half_t>{1, 2, 3, 4,
-                                5, 6, 7, 8,
-                                9, 10, 11, 12,
-                                13, 14, 15, 16},
+                                 5, 6, 7, 8,
+                                 9, 10, 11, 12,
+                                 13, 14, 15, 16},
              &hipDevice);
     Tensor W(TensorDataType::FLOAT16, {1, 1, 3, 3},
              std::vector<half_t>{1, 0, -1,
-                                1, 0, -1,
-                                1, 0, -1},
+                                 1, 0, -1,
+                                 1, 0, -1},
              &hipDevice);
     Tensor B(TensorDataType::FLOAT16, {1}, std::vector<half_t>{0}, &hipDevice);
     Tensor expected(TensorDataType::FLOAT16, {1, 1, 2, 2}, std::vector<half_t>{-6, -6, -6, -6}, &hipDevice);
@@ -362,13 +362,13 @@ TEST(QuantizationTestHIP, GatherOperatorBasic)
     HipDevice hipDevice = HipDevice(0);
     Tensor data(TensorDataType::FLOAT16, {3, 4},
                 std::vector<half_t>{0, 1, 2, 3,
-                                   4, 5, 6, 7,
-                                   8, 9, 10, 11},
+                                    4, 5, 6, 7,
+                                    8, 9, 10, 11},
                 &hipDevice);
     Tensor indices(TensorDataType::INT64, {2}, std::vector<int64_t>{0, 2}, &hipDevice);
     Tensor expected(TensorDataType::FLOAT16, {2, 4},
                     std::vector<half_t>{0, 1, 2, 3,
-                                       8, 9, 10, 11},
+                                        8, 9, 10, 11},
                     &hipDevice);
     std::unordered_map<std::string, Node::AttributeValue> attributes;
     attributes["axis"] = 0;
@@ -413,13 +413,13 @@ TEST(QuantizationTestHIP, MaxPoolOperatorBasic)
     HipDevice hipDevice = HipDevice(0);
     Tensor X(TensorDataType::FLOAT16, {1, 1, 4, 4},
              std::vector<half_t>{1, 2, 3, 4,
-                                5, 6, 7, 8,
-                                9, 10, 11, 12,
-                                13, 14, 15, 16},
+                                 5, 6, 7, 8,
+                                 9, 10, 11, 12,
+                                 13, 14, 15, 16},
              &hipDevice);
     Tensor expected(TensorDataType::FLOAT16, {1, 1, 2, 2},
                     std::vector<half_t>{6, 8,
-                                       14, 16},
+                                        14, 16},
                     &hipDevice);
     std::unordered_map<std::string, Node::AttributeValue> attributes;
     attributes["kernel_shape"] = std::vector<int64_t>{2, 2};
@@ -472,15 +472,15 @@ TEST(QuantizationTestHIP, SliceOperatorBasic)
     HipDevice hipDevice = HipDevice(0);
     Tensor data(TensorDataType::FLOAT16, {3, 4},
                 std::vector<half_t>{0, 1, 2, 3,
-                                   4, 5, 6, 7,
-                                   8, 9, 10, 11},
+                                    4, 5, 6, 7,
+                                    8, 9, 10, 11},
                 &hipDevice);
     Tensor starts(TensorDataType::INT64, {1}, std::vector<int64_t>{1}, &hipDevice);
     Tensor ends(TensorDataType::INT64, {1}, std::vector<int64_t>{3}, &hipDevice);
     Tensor axes(TensorDataType::INT64, {1}, std::vector<int64_t>{0}, &hipDevice);
     Tensor expected(TensorDataType::FLOAT16, {2, 4},
                     std::vector<half_t>{4, 5, 6, 7,
-                                       8, 9, 10, 11},
+                                        8, 9, 10, 11},
                     &hipDevice);
 
     std::unordered_map<std::string, Node::AttributeValue> attributes;
@@ -515,16 +515,16 @@ TEST(QuantizationTestHIP, SplitOperatorBasic)
     HipDevice hipDevice = HipDevice(0);
     Tensor data(TensorDataType::FLOAT16, {2, 4},
                 std::vector<half_t>{1, 2, 3, 4,
-                                   5, 6, 7, 8},
+                                    5, 6, 7, 8},
                 &hipDevice);
     Tensor split(TensorDataType::INT64, {2}, std::vector<int64_t>{2, 2}, &hipDevice);
     Tensor expected1(TensorDataType::FLOAT16, {2, 2},
                      std::vector<half_t>{1, 2,
-                                        5, 6},
+                                         5, 6},
                      &hipDevice);
     Tensor expected2(TensorDataType::FLOAT16, {2, 2},
                      std::vector<half_t>{3, 4,
-                                        7, 8},
+                                         7, 8},
                      &hipDevice);
     std::unordered_map<std::string, Node::AttributeValue> attributes;
     attributes["axis"] = 1;
@@ -577,9 +577,9 @@ TEST(QuantizationTestHIP, ResizeOperatorBasic)
     Tensor scales(TensorDataType::FLOAT32, {4}, std::vector<float>{1.0f, 1.0f, 2.0f, 2.0f}, &hipDevice);
     Tensor expected(TensorDataType::FLOAT16, {1, 1, 4, 4},
                     std::vector<half_t>{1, 1, 2, 2,
-                                       1, 1, 2, 2,
-                                       3, 3, 4, 4,
-                                       3, 3, 4, 4},
+                                        1, 1, 2, 2,
+                                        3, 3, 4, 4,
+                                        3, 3, 4, 4},
                     &hipDevice);
     std::unordered_map<std::string, Node::AttributeValue> attributes;
     attributes["mode"] = std::string("nearest");
