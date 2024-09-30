@@ -135,7 +135,6 @@ OperatorExecuteResult ReshapeOperator::execute(
 
     const Tensor &input_tensor = inputs[0];
     const Tensor &shape_tensor = inputs[1];
-    Tensor *output_tensor = outputs[0];
 
     if (shape_tensor.getDataType() != TensorDataType::INT64 || shape_tensor.getNDim() != 1)
     {

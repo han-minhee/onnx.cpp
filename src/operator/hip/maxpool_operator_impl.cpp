@@ -152,6 +152,22 @@ namespace HIP_OP
                                                     num_elements_output, input_ndims, output_ndims,
                                                     kernel_h, kernel_w, stride_h, stride_w, pad_h, pad_w, dilation_h, dilation_w, ceil_mode));
             break;
+        case TensorDataType::INT32:
+            hipKernelLaunchCheck(hipLaunchKernelGGL(maxpool_kernel<int32_t>, gridSize, blockSize, 0, 0,
+                                                    static_cast<const int32_t *>(input_data), d_input_dims, d_input_strides,
+                                                    static_cast<int32_t *>(output_data), d_output_dims, d_output_strides,
+                                                    num_elements_output, input_ndims, output_ndims,
+                                                    kernel_h, kernel_w, stride_h, stride_w, pad_h, pad_w, dilation_h, dilation_w, ceil_mode));
+            break;
+        
+        case TensorDataType::FLOAT16:
+            hipKernelLaunchCheck(hipLaunchKernelGGL(maxpool_kernel<half_t>, gridSize, blockSize, 0, 0,
+                                                    static_cast<const half_t *>(input_data), d_input_dims, d_input_strides,
+                                                    static_cast<half_t *>(output_data), d_output_dims, d_output_strides,
+                                                    num_elements_output, input_ndims, output_ndims,
+                                                    kernel_h, kernel_w, stride_h, stride_w, pad_h, pad_w, dilation_h, dilation_w, ceil_mode));
+            break;
+        
         default:
             return OperatorExecuteResult::DATA_TYPE_ERROR;
         }

@@ -160,6 +160,12 @@ namespace CPU_OP
             return executeResize<int32_t>(input_tensor, output_tensor, attributes, scales, sizes, mode, coordinate_transformation_mode, nearest_mode, has_scales, has_sizes);
         case TensorDataType::INT64:
             return executeResize<int64_t>(input_tensor, output_tensor, attributes, scales, sizes, mode, coordinate_transformation_mode, nearest_mode, has_scales, has_sizes);
+        case TensorDataType::INT8:
+            return executeResize<int8_t>(input_tensor, output_tensor, attributes, scales, sizes, mode, coordinate_transformation_mode, nearest_mode, has_scales, has_sizes);
+        case TensorDataType::UINT8:
+            return executeResize<uint8_t>(input_tensor, output_tensor, attributes, scales, sizes, mode, coordinate_transformation_mode, nearest_mode, has_scales, has_sizes);
+        case TensorDataType::FLOAT16:
+            return executeResize<half_t>(input_tensor, output_tensor, attributes, scales, sizes, mode, coordinate_transformation_mode, nearest_mode, has_scales, has_sizes);
         default:
             return OperatorExecuteResult::DATA_TYPE_ERROR;
         }

@@ -174,6 +174,13 @@ namespace HIP_OP
                                                     d_scales, coordinate_transformation_mode_int, nearest_mode_int,
                                                     num_output_elements, num_dims));
             break;
+        case TensorDataType::FLOAT16:
+            hipKernelLaunchCheck(hipLaunchKernelGGL(resize_kernel<half_t>, gridSize, blockSize, 0, 0,
+                                                    static_cast<const half_t *>(input_data), d_input_shape, d_input_strides,
+                                                    static_cast<half_t *>(output_data), d_output_shape, d_output_strides,
+                                                    d_scales, coordinate_transformation_mode_int, nearest_mode_int,
+                                                    num_output_elements, num_dims));
+            break;
         default:
             return OperatorExecuteResult::DATA_TYPE_ERROR;
         }

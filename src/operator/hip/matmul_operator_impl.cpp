@@ -8,6 +8,7 @@
 
 namespace HIP_OP
 {
+
     template <typename T>
     __global__ void matmul_kernel(const T *__restrict__ A, const T *__restrict__ B, T *__restrict__ C,
                                   size_t dim_A_row, size_t dim_A_col, size_t dim_B_col)
@@ -30,18 +31,18 @@ namespace HIP_OP
             {
                 tile_A[threadIdx.y][threadIdx.x] = A[row * dim_A_col + t * TILE_SIZE + threadIdx.x];
             }
-            else // out of bounds
+            else
             {
-                tile_A[threadIdx.y][threadIdx.x] = 0;
+                tile_A[threadIdx.y][threadIdx.x] = 0; // out of bounds
             }
 
             if (col < dim_B_col && t * TILE_SIZE + threadIdx.y < dim_A_col)
             {
                 tile_B[threadIdx.y][threadIdx.x] = B[(t * TILE_SIZE + threadIdx.y) * dim_B_col + col];
             }
-            else // out of bounds
+            else
             {
-                tile_B[threadIdx.y][threadIdx.x] = 0;
+                tile_B[threadIdx.y][threadIdx.x] = 0; // out of bounds
             }
 
             __syncthreads(); // Synchronize to ensure all threads have loaded data
@@ -104,15 +105,16 @@ namespace HIP_OP
         Y->setDataType(A.getDataType());
 
         // Allocate buffers
-        const void *A_data = A.getBuffer()->getDataPointer();
-        const void *B_data = B.getBuffer()->getDataPointer();
-        void *Y_data = Y->getBuffer()->getDataPointer();
+        const void *A_data = A.getDataPointer();
+        const void *B_data = B.getDataPointer();
+        void *Y_data = Y->getDataPointer();
 
         // Kernel launch configuration
         dim3 blockSize(TILE_SIZE, TILE_SIZE);
         dim3 gridSize((dim_B_col + TILE_SIZE - 1) / TILE_SIZE, (dim_A_row + TILE_SIZE - 1) / TILE_SIZE);
 
         // Launch the kernel based on the data type
+        // shared memory size doesn't have to be given explicitly if the size is fixed
         switch (A.getDataType())
         {
         case TensorDataType::FLOAT32:
@@ -144,6 +146,13 @@ namespace HIP_OP
             hipKernelLaunchCheck(hipLaunchKernelGGL(matmul_kernel<uint8_t>, gridSize, blockSize, 0, 0,
                                                     static_cast<const uint8_t *>(A_data), static_cast<const uint8_t *>(B_data),
                                                     static_cast<uint8_t *>(Y_data), dim_A_row, dim_A_col, dim_B_col));
+            break;
+
+        /// FIXME: When using shared memory with half_t, it throws an error dealing with the half_t class
+        case TensorDataType::FLOAT16:
+            hipKernelLaunchCheck(hipLaunchKernelGGL(matmul_kernel<__half>, gridSize, blockSize, 0, 0,
+                                                    static_cast<const __half *>(A_data), static_cast<const __half *>(B_data),
+                                                    static_cast<__half *>(Y_data), dim_A_row, dim_A_col, dim_B_col));
             break;
         default:
             return OperatorExecuteResult::DATA_TYPE_ERROR;

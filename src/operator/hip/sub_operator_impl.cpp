@@ -102,6 +102,20 @@ namespace HIP_OP
                                                     static_cast<int64_t *>(C_data), d_C_dims, d_C_strides,
                                                     num_elements_C, A_ndims, B_ndims, C_ndims));
             break;
+        case TensorDataType::INT32:
+            hipKernelLaunchCheck(hipLaunchKernelGGL(sub_kernel<int32_t>, gridSize, blockSize, 0, 0,
+                                                    static_cast<const int32_t *>(A_data), d_A_dims, d_A_strides,
+                                                    static_cast<const int32_t *>(B_data), d_B_dims, d_B_strides,
+                                                    static_cast<int32_t *>(C_data), d_C_dims, d_C_strides,
+                                                    num_elements_C, A_ndims, B_ndims, C_ndims));
+            break;
+        case TensorDataType::FLOAT16:
+            hipKernelLaunchCheck(hipLaunchKernelGGL(sub_kernel<__half>, gridSize, blockSize, 0, 0,
+                                                    static_cast<const __half *>(A_data), d_A_dims, d_A_strides,
+                                                    static_cast<const __half *>(B_data), d_B_dims, d_B_strides,
+                                                    static_cast<__half *>(C_data), d_C_dims, d_C_strides,
+                                                    num_elements_C, A_ndims, B_ndims, C_ndims));
+            break;
         default:
             return OperatorExecuteResult::DATA_TYPE_ERROR;
         }

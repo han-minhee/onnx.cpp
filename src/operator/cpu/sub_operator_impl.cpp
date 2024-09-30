@@ -71,6 +71,9 @@ namespace CPU_OP
         case TensorDataType::UINT8:
             return executeElementwiseOperation<uint8_t>(inputs, output, input_strides, output_strides, output_shape,
                                                         std::minus<uint8_t>());
+        case TensorDataType::FLOAT16:
+            return executeElementwiseOperation<half_t>(inputs, output, input_strides, output_strides, output_shape,
+                                                       std::minus<half_t>());
         default:
             return OperatorExecuteResult::UNSUPPORTED_OPERATION;
         }

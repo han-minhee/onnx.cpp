@@ -90,18 +90,24 @@ namespace HIP_OP
         }
 
         Tensor *output = outputs[0];
-
-        if (input.getDataType() == TensorDataType::FLOAT32)
-        {
-            return executeGather<float>(input, indices, output, axis);
-        }
-        else if (input.getDataType() == TensorDataType::INT32)
-        {
-            return executeGather<int32_t>(input, indices, output, axis);
-        }
-        else if (input.getDataType() == TensorDataType::INT64)
-        {
-            return executeGather<int64_t>(input, indices, output, axis);
+        TensorDataType data_type = input.getDataType();
+        switch(data_type){
+            case TensorDataType::FLOAT32:
+                return executeGather<float>(input, indices, output, axis);
+            case TensorDataType::FLOAT64:
+                return executeGather<double>(input, indices, output, axis);
+            case TensorDataType::INT32:
+                return executeGather<int32_t>(input, indices, output, axis);
+            case TensorDataType::INT64:
+                return executeGather<int64_t>(input, indices, output, axis);
+            case TensorDataType::INT8:
+                return executeGather<int8_t>(input, indices, output, axis);
+            case TensorDataType::UINT8:
+                return executeGather<uint8_t>(input, indices, output, axis);
+            case TensorDataType::FLOAT16:
+                return executeGather<half_t>(input, indices, output, axis);
+            default:
+                return OperatorExecuteResult::NOT_IMPLEMENTED;
         }
 
         return OperatorExecuteResult::SUCCESS;

@@ -535,20 +535,6 @@ TEST(OperatorTestHIP, SplitOperatorBasic)
     RUN_TEST_CASE(OperatorType::Split, inputs, expected_tensors, attributes, OperatorExecuteResult::SUCCESS, &hipDevice);
 }
 
-// TEST(OperatorTestHIP, SplitOperatorShapeMismatchError)
-// {
-//     // Shape mismatch error
-//     HipDevice hipDevice = HipDevice(0);
-//     Tensor data(TensorDataType::FLOAT32, {2, 4}, std::vector<float>{1, 2, 3, 4, 5, 6, 7, 8}, &hipDevice);
-//     Tensor split(TensorDataType::INT64, {2}, std::vector<int64_t>{3, 2}, &hipDevice);
-//     std::unordered_map<std::string, Node::AttributeValue> attributes;
-//     attributes["axis"] = 1;
-
-//     std::vector<Tensor> inputs = {data, split};
-//     std::vector<Tensor> expected_tensors;
-
-//     RUN_TEST_CASE(OperatorType::Split, inputs, expected_tensors, attributes, OperatorExecuteResult::OUTPUT_TENSOR_ERROR, &hipDevice);
-// }
 
 // ----------------------- TransposeOperator Tests -----------------------
 TEST(OperatorTestHIP, TransposeOperatorBasic)
