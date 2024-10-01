@@ -41,6 +41,7 @@ namespace HIP_OP
         }
     }
 
+    /// FIXME: implement proper executeResult return
     OperatorExecuteResult SplitOperatorImpl::execute(const std::vector<Tensor> &inputs, std::vector<Tensor *> &outputs,
                                                      const std::unordered_map<std::string, Node::AttributeValue> &attributes, Device *device)
     {
@@ -92,7 +93,7 @@ namespace HIP_OP
 
         size_t input_axis_dim = input.getDims()[axis];
 
-        const void *input_data = input.getBuffer()->getDataPointer();
+        const void *input_data = input.getDataPointer();
 
         // Allocate device memory for output pointers
         void **d_output_data;
@@ -102,7 +103,7 @@ namespace HIP_OP
         std::vector<void *> h_output_data(outputs.size());
         for (size_t i = 0; i < outputs.size(); ++i)
         {
-            h_output_data[i] = outputs[i]->getBuffer()->getDataPointer();
+            h_output_data[i] = outputs[i]->getDataPointer();
         }
         hipErrorCheck(hipMemcpy(d_output_data, h_output_data.data(), outputs.size() * sizeof(void *), hipMemcpyHostToDevice));
 
@@ -165,10 +166,16 @@ namespace HIP_OP
                                                     input.getDims().data(), d_split_sizes,
                                                     split_sizes.size(), axis, outer_dim, inner_dim, input_axis_dim));
             break;
+        case TensorDataType::FLOAT16:
+            hipKernelLaunchCheck(hipLaunchKernelGGL(split_kernel<half_t>, gridSize, blockSize, 0, 0,
+                                                    static_cast<const half_t *>(input_data),
+                                                    reinterpret_cast<half_t **>(d_output_data),
+                                                    input.getDims().data(), d_split_sizes,
+                                                    split_sizes.size(), axis, outer_dim, inner_dim, input_axis_dim));
+            break;
         default:
             hipErrorCheck(hipFree(d_split_sizes));
             hipErrorCheck(hipFree(d_output_data));
-            return OperatorExecuteResult::DATA_TYPE_ERROR;
         }
 
         hipErrorCheck(hipFree(d_split_sizes));

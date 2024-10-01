@@ -82,6 +82,9 @@ namespace CPU_OP
         case TensorDataType::UINT8:
             executeTranspose<uint8_t>(input_tensor, output_tensor, perm);
             break;
+        case TensorDataType::FLOAT16:
+            executeTranspose<half_t>(input_tensor, output_tensor, perm);
+            break;
         default:
             return OperatorExecuteResult::DATA_TYPE_ERROR;
         }

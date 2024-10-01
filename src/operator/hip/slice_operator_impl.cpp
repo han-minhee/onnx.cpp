@@ -197,20 +197,22 @@ namespace HIP_OP
         computeEffectiveStartEndSteps(input_tensor, starts_data, ends_data, axes, steps, effective_starts, effective_ends, effective_steps);
         std::vector<size_t> output_shape = output_tensor->getDims();
 
-        // Handling different data types
-        if (input_tensor.getDataType() == TensorDataType::FLOAT32)
+        TensorDataType dtype = input_tensor.getDataType();
+        switch (dtype)
         {
+        case TensorDataType::FLOAT32:
             return executeSlice<float>(input_tensor, output_tensor, effective_starts, effective_steps, device);
-        }
-        else if (input_tensor.getDataType() == TensorDataType::INT32)
-        {
+        case TensorDataType::FLOAT64:
+            return executeSlice<double>(input_tensor, output_tensor, effective_starts, effective_steps, device);
+        case TensorDataType::INT32:
             return executeSlice<int32_t>(input_tensor, output_tensor, effective_starts, effective_steps, device);
-        }
-        else if (input_tensor.getDataType() == TensorDataType::INT64)
-        {
+        case TensorDataType::INT64:
             return executeSlice<int64_t>(input_tensor, output_tensor, effective_starts, effective_steps, device);
+        case TensorDataType::FLOAT16:
+            return executeSlice<__half>(input_tensor, output_tensor, effective_starts, effective_steps, device);
+        default:
+            return OperatorExecuteResult::DATA_TYPE_ERROR;
         }
-
         return OperatorExecuteResult::SUCCESS;
     }
 };

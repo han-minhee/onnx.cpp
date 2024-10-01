@@ -3,13 +3,27 @@
 #include <hip/hip_runtime.h>
 #include <vector>
 #include <iostream>
-#include <math.h>
+#include <cmath>
 
 #include "operator/operators.hpp"
 #include "utils.hpp"
 
+#define BLOCK_SIZE 256
+
 namespace HIP_OP
 {
+    template <typename T>
+    __device__ T exp_function(T x)
+    {
+        return exp(x);
+    }
+
+    template <>
+    __device__ __half exp_function<__half>(__half x)
+    {
+        return __float2half(expf(__half2float(x)));
+    }
+
     template <typename T>
     __global__ void softmax_kernel(const T *input_data, T *output_data,
                                    size_t outer_size, size_t axis_size, size_t inner_size)
@@ -26,7 +40,6 @@ namespace HIP_OP
 
         size_t offset = outer * axis_size * inner_size + inner;
 
-        // Step 1: Find the max value for numerical stability across the entire axis
         T max_val = input_data[offset];
         for (size_t i = 1; i < axis_size; ++i)
         {
@@ -37,22 +50,20 @@ namespace HIP_OP
             }
         }
 
-        // Step 2: Calculate the exponential values and sum them
-        T sum = 0.0f;
+        T sum = static_cast<T>(0.0f);
         for (size_t i = 0; i < axis_size; ++i)
         {
             size_t idx = offset + i * inner_size;
-            output_data[idx] = exp(input_data[idx] - max_val);
-            sum += output_data[idx];
+            output_data[idx] = exp_function(input_data[idx] - max_val);
+            sum = sum + output_data[idx];
         }
 
-        // Step 3: Normalize the values
-        if (sum > 0) // Avoid potential division by zero
+        if (static_cast<float>(sum) > 0.0f)
         {
             for (size_t i = 0; i < axis_size; ++i)
             {
                 size_t idx = offset + i * inner_size;
-                output_data[idx] /= sum;
+                output_data[idx] = output_data[idx] / sum;
             }
         }
     }
@@ -64,15 +75,11 @@ namespace HIP_OP
         const T *input_data = input.data<T>();
         T *output_data = output->data<T>();
 
-        const int BLOCK_SIZE = 256;
-
-        // Calculate the number of blocks needed to cover all inner indices
         size_t num_blocks = (inner_size + BLOCK_SIZE - 1) / BLOCK_SIZE;
 
         dim3 blockDim(BLOCK_SIZE);
-        dim3 gridDim(outer_size * num_blocks); // Each outer slice can have multiple blocks
+        dim3 gridDim(outer_size * num_blocks);
 
-        // Launch the kernel with updated grid dimensions
         hipLaunchKernelGGL(softmax_kernel<T>, gridDim, blockDim, 0, 0,
                            input_data, output_data, outer_size, axis_size, inner_size);
 
@@ -84,7 +91,6 @@ namespace HIP_OP
     OperatorExecuteResult SoftmaxOperatorImpl::execute(const std::vector<Tensor> &inputs, std::vector<Tensor *> &outputs,
                                                        const std::unordered_map<std::string, Node::AttributeValue> &attributes, Device *device)
     {
-
         const Tensor &input = inputs[0];
         Tensor *output = outputs[0];
 
@@ -121,13 +127,23 @@ namespace HIP_OP
             inner_size *= input_shape[i];
         }
 
-        // Execute softmax based on data type
+        const void *input_data = input.getDataPointer();
+        void *output_data = output->getDataPointer();
+
+        size_t num_blocks = (inner_size + BLOCK_SIZE - 1) / BLOCK_SIZE;
+
+        dim3 blockDim(BLOCK_SIZE);
+        dim3 gridDim(outer_size * num_blocks);
+
         switch (dataType)
         {
         case TensorDataType::FLOAT32:
             return executeSoftmax<float>(input, output, outer_size, axis_size, inner_size);
+        case TensorDataType::FLOAT64:
+            return executeSoftmax<double>(input, output, outer_size, axis_size, inner_size);
+        case TensorDataType::FLOAT16:
+            return executeSoftmax<half_t>(input, output, outer_size, axis_size, inner_size);
 
-        // Add cases for other data types as needed
         default:
             return OperatorExecuteResult::DATA_TYPE_ERROR;
         }

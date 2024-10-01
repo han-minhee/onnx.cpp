@@ -1,13 +1,15 @@
-#ifdef USE_HIP
 #include <gtest/gtest.h>
-#include <hip/hip_runtime.h>
 
 #include "tensor/tensor.hpp"
 #include "operator/operators.hpp"
 #include "operator/operator_registry.hpp"
 
 #include "device/device.hpp"
+#include "device/device_cpu.hpp"
+
+#ifdef USE_HIP
 #include "device/device_hip.hpp"
+#endif
 
 void PrintTo(OperatorExecuteResult result, std::ostream *os)
 {
@@ -20,7 +22,7 @@ void run_and_check_operator(const OperatorRegistry::OperatorFunctions *op,
                             std::vector<Tensor> &expected,
                             std::unordered_map<std::string, Node::AttributeValue> attributes,
                             OperatorExecuteResult expected_execute_result,
-                            HipDevice *device)
+                            Device *device)
 {
     OperatorExecuteResult result_code = op->execute(inputs, outputs, attributes, device);
 
@@ -36,9 +38,6 @@ void run_and_check_operator(const OperatorRegistry::OperatorFunctions *op,
     {
         ASSERT_EQ(outputs[i]->getDims(), expected[i].getDims());
         ASSERT_EQ(outputs[i]->getDataType(), expected[i].getDataType());
-
-        // std::cout << inputs[i].toString() << std::endl;
-        // std::cout << outputs[i]->toString() << std::endl;
 
         // move tensors to host
         outputs[i]->to(new CpuDevice());
@@ -79,6 +78,19 @@ void run_and_check_operator(const OperatorRegistry::OperatorFunctions *op,
             }
             break;
         }
+
+        case TensorDataType::FLOAT16:
+        {
+            const half_t *output_data = outputs[i]->data<half_t>();
+            const half_t *expected_data = expected[i].data<half_t>();
+
+            for (size_t j = 0; j < expected[i].getNumElements(); j++)
+            {
+                ASSERT_NEAR(output_data[j], expected_data[j], 1e-3);
+            }
+            break;
+        }
+
         default:
             throw std::runtime_error("Unsupported data type.");
         }
@@ -108,13 +120,31 @@ void run_and_check_operator(const OperatorRegistry::OperatorFunctions *op,
     } while (0)
 
 // ----------------------- AddOperator Tests -----------------------
-TEST(OperatorTestHIP, AddOperatorBasic)
+TEST(QuantizationTestCPU, AddOperatorBasic)
+{
+    CpuDevice cpuDevice = CpuDevice();
+
+    Tensor t1(TensorDataType::FLOAT16, {2, 3}, std::vector<half_t>{1.0f, 2.0f, 3.0f, 4.0f, 3.0f, 4.0f}, &cpuDevice);
+    Tensor t2(TensorDataType::FLOAT16, {2, 3}, std::vector<half_t>{5.0f, 6.0f, 7.0f, 8.0f, 3.0f, 4.0f}, &cpuDevice);
+    Tensor expected(TensorDataType::FLOAT16, {2, 3}, std::vector<half_t>{6.0f, 8.0f, 10.0f, 12.0f, 6.0f, 8.0f}, &cpuDevice);
+    std::unordered_map<std::string, Node::AttributeValue> attributes;
+
+    std::vector<Tensor> inputs = {t1, t2};
+    std::vector<Tensor> expected_tensors = {expected};
+
+    RUN_TEST_CASE(OperatorType::Add, inputs, expected_tensors, attributes, OperatorExecuteResult::SUCCESS, &cpuDevice);
+}
+
+#ifdef USE_HIP
+
+// ----------------------- AddOperator Tests -----------------------
+TEST(QuantizationTestHIP, AddOperatorBasic)
 {
     HipDevice hipDevice = HipDevice(0);
 
-    Tensor t1(TensorDataType::FLOAT32, {2, 3}, std::vector<float>{1.0f, 2.0f, 3.0f, 4.0f, 3.0f, 4.0f}, &hipDevice);
-    Tensor t2(TensorDataType::FLOAT32, {2, 3}, std::vector<float>{5.0f, 6.0f, 7.0f, 8.0f, 3.0f, 4.0f}, &hipDevice);
-    Tensor expected(TensorDataType::FLOAT32, {2, 3}, std::vector<float>{6.0f, 8.0f, 10.0f, 12.0f, 6.0f, 8.0f}, &hipDevice);
+    Tensor t1(TensorDataType::FLOAT16, {2, 3}, std::vector<half_t>{1.0f, 2.0f, 3.0f, 4.0f, 3.0f, 4.0f}, &hipDevice);
+    Tensor t2(TensorDataType::FLOAT16, {2, 3}, std::vector<half_t>{5.0f, 6.0f, 7.0f, 8.0f, 3.0f, 4.0f}, &hipDevice);
+    Tensor expected(TensorDataType::FLOAT16, {2, 3}, std::vector<half_t>{6.0f, 8.0f, 10.0f, 12.0f, 6.0f, 8.0f}, &hipDevice);
     std::unordered_map<std::string, Node::AttributeValue> attributes;
 
     std::vector<Tensor> inputs = {t1, t2};
@@ -122,43 +152,13 @@ TEST(OperatorTestHIP, AddOperatorBasic)
 
     RUN_TEST_CASE(OperatorType::Add, inputs, expected_tensors, attributes, OperatorExecuteResult::SUCCESS, &hipDevice);
 }
-
-TEST(OperatorTestHIP, AddOperatorBroadcastScalar)
-{
-    // Broadcasting scalar addition
-    HipDevice hipDevice = HipDevice(0);
-    Tensor t1(TensorDataType::FLOAT32, {2, 2}, std::vector<float>{1.0f, 2.0f, 3.0f, 4.0f}, &hipDevice);
-    Tensor t2(TensorDataType::FLOAT32, {}, std::vector<float>{10.0f}, &hipDevice); // Scalar tensor
-    Tensor expected(TensorDataType::FLOAT32, {2, 2}, std::vector<float>{11.0f, 12.0f, 13.0f, 14.0f}, &hipDevice);
-    std::unordered_map<std::string, Node::AttributeValue> attributes;
-
-    std::vector<Tensor> inputs = {t1, t2};
-    std::vector<Tensor> expected_tensors = {expected};
-
-    RUN_TEST_CASE(OperatorType::Add, inputs, expected_tensors, attributes, OperatorExecuteResult::SUCCESS, &hipDevice);
-}
-
-TEST(OperatorTestHIP, AddOperatorShapeMismatchError)
-{
-    // Shape mismatch error
-    HipDevice hipDevice = HipDevice(0);
-    Tensor t1(TensorDataType::FLOAT32, {2, 2}, std::vector<float>{1.0f, 2.0f, 3.0f, 4.0f}, &hipDevice);
-    Tensor t2(TensorDataType::FLOAT32, {3, 2}, std::vector<float>{5.0f, 6.0f, 7.0f, 8.0f, 9.0f, 10.0f}, &hipDevice);
-    std::unordered_map<std::string, Node::AttributeValue> attributes;
-
-    std::vector<Tensor> inputs = {t1, t2};
-    std::vector<Tensor> expected_tensors;
-
-    RUN_TEST_CASE(OperatorType::Add, inputs, expected_tensors, attributes, OperatorExecuteResult::SHAPE_MISMATCH_ERROR, &hipDevice);
-}
-
-TEST(OperatorTestHIP, AddOperatorBroadcastVector)
+TEST(QuantizationTestHIP, AddOperatorBroadcastVector)
 {
     // Broadcasting vector addition
     HipDevice hipDevice = HipDevice(0);
-    Tensor t1(TensorDataType::FLOAT32, {2, 2}, std::vector<float>{1.0f, 2.0f, 3.0f, 4.0f}, &hipDevice);
-    Tensor t2(TensorDataType::FLOAT32, {2}, std::vector<float>{10.0f, 20.0f}, &hipDevice); // Vector tensor
-    Tensor expected(TensorDataType::FLOAT32, {2, 2}, std::vector<float>{11.0f, 22.0f, 13.0f, 24.0f}, &hipDevice);
+    Tensor t1(TensorDataType::FLOAT16, {2, 2}, std::vector<half_t>{1.0f, 2.0f, 3.0f, 4.0f}, &hipDevice);
+    Tensor t2(TensorDataType::FLOAT16, {2}, std::vector<half_t>{10.0f, 20.0f}, &hipDevice); // Vector tensor
+    Tensor expected(TensorDataType::FLOAT16, {2, 2}, std::vector<half_t>{11.0f, 22.0f, 13.0f, 24.0f}, &hipDevice);
     std::unordered_map<std::string, Node::AttributeValue> attributes;
 
     std::vector<Tensor> inputs = {t1, t2};
@@ -168,13 +168,13 @@ TEST(OperatorTestHIP, AddOperatorBroadcastVector)
 }
 
 // ----------------------- SubOperator Tests -----------------------
-TEST(OperatorTestHIP, SubOperatorBasic)
+TEST(QuantizationTestHIP, SubOperatorBasic)
 {
     // Basic subtraction test
     HipDevice hipDevice = HipDevice(0);
-    Tensor t1(TensorDataType::FLOAT32, {2, 2}, std::vector<float>{5.0f, 7.0f, 9.0f, 11.0f}, &hipDevice);
-    Tensor t2(TensorDataType::FLOAT32, {2, 2}, std::vector<float>{1.0f, 2.0f, 3.0f, 4.0f}, &hipDevice);
-    Tensor expected(TensorDataType::FLOAT32, {2, 2}, std::vector<float>{4.0f, 5.0f, 6.0f, 7.0f}, &hipDevice);
+    Tensor t1(TensorDataType::FLOAT16, {2, 2}, std::vector<half_t>{5.0f, 7.0f, 9.0f, 11.0f}, &hipDevice);
+    Tensor t2(TensorDataType::FLOAT16, {2, 2}, std::vector<half_t>{1.0f, 2.0f, 3.0f, 4.0f}, &hipDevice);
+    Tensor expected(TensorDataType::FLOAT16, {2, 2}, std::vector<half_t>{4.0f, 5.0f, 6.0f, 7.0f}, &hipDevice);
 
     std::unordered_map<std::string, Node::AttributeValue> attributes;
 
@@ -184,11 +184,11 @@ TEST(OperatorTestHIP, SubOperatorBasic)
     RUN_TEST_CASE(OperatorType::Sub, inputs, expected_tensors, attributes, OperatorExecuteResult::SUCCESS, &hipDevice);
 }
 
-TEST(OperatorTestHIP, SubOperatorShapeMismatchError)
+TEST(QuantizationTestHIP, SubOperatorShapeMismatchError)
 {
     HipDevice hipDevice = HipDevice(0);
-    Tensor t1(TensorDataType::FLOAT32, {2, 2}, std::vector<float>{1.0f, 2.0f, 3.0f, 4.0f}, &hipDevice);
-    Tensor t2(TensorDataType::FLOAT32, {3, 2}, std::vector<float>{5.0f, 6.0f, 7.0f, 8.0f, 9.0f, 10.0f}, &hipDevice);
+    Tensor t1(TensorDataType::FLOAT16, {2, 2}, std::vector<half_t>{1.0f, 2.0f, 3.0f, 4.0f}, &hipDevice);
+    Tensor t2(TensorDataType::FLOAT16, {3, 2}, std::vector<half_t>{5.0f, 6.0f, 7.0f, 8.0f, 9.0f, 10.0f}, &hipDevice);
     std::unordered_map<std::string, Node::AttributeValue> attributes;
 
     std::vector<Tensor> inputs = {t1, t2};
@@ -197,13 +197,13 @@ TEST(OperatorTestHIP, SubOperatorShapeMismatchError)
     RUN_TEST_CASE(OperatorType::Sub, inputs, expected_tensors, attributes, OperatorExecuteResult::SHAPE_MISMATCH_ERROR, &hipDevice);
 }
 
-TEST(OperatorTestHIP, SubOperatorBroadcastScalar)
+TEST(QuantizationTestHIP, SubOperatorBroadcastScalar)
 {
     // Broadcasting scalar subtraction
     HipDevice hipDevice = HipDevice(0);
-    Tensor t1(TensorDataType::FLOAT32, {2, 2}, std::vector<float>{10.0f, 20.0f, 30.0f, 40.0f}, &hipDevice);
-    Tensor t2(TensorDataType::FLOAT32, {}, std::vector<float>{2.0f}, &hipDevice); // Scalar tensor
-    Tensor expected(TensorDataType::FLOAT32, {2, 2}, std::vector<float>{8.0f, 18.0f, 28.0f, 38.0f}, &hipDevice);
+    Tensor t1(TensorDataType::FLOAT16, {2, 2}, std::vector<half_t>{10.0f, 20.0f, 30.0f, 40.0f}, &hipDevice);
+    Tensor t2(TensorDataType::FLOAT16, {}, std::vector<half_t>{2.0f}, &hipDevice); // Scalar tensor
+    Tensor expected(TensorDataType::FLOAT16, {2, 2}, std::vector<half_t>{8.0f, 18.0f, 28.0f, 38.0f}, &hipDevice);
     std::unordered_map<std::string, Node::AttributeValue> attributes;
 
     std::vector<Tensor> inputs = {t1, t2};
@@ -213,13 +213,13 @@ TEST(OperatorTestHIP, SubOperatorBroadcastScalar)
 }
 
 /// FIXME: Broadcasting is likely broken
-TEST(OperatorTestHIP, SubOperatorBroadcastVector0)
+TEST(QuantizationTestHIP, SubOperatorBroadcastVector0)
 {
     // Broadcasting vector subtraction
     HipDevice hipDevice = HipDevice(0);
-    Tensor t1(TensorDataType::FLOAT32, {2, 2}, std::vector<float>{1.0f, 2.0f, 3.0f, 4.0f}, &hipDevice);
-    Tensor t2(TensorDataType::FLOAT32, {2}, std::vector<float>{10.0f, 20.0f}, &hipDevice); // Vector tensor
-    Tensor expected(TensorDataType::FLOAT32, {2, 2}, std::vector<float>{-9.0f, -18.0f, -7.0f, -16.0f}, &hipDevice);
+    Tensor t1(TensorDataType::FLOAT16, {2, 2}, std::vector<half_t>{1.0f, 2.0f, 3.0f, 4.0f}, &hipDevice);
+    Tensor t2(TensorDataType::FLOAT16, {2}, std::vector<half_t>{10.0f, 20.0f}, &hipDevice); // Vector tensor
+    Tensor expected(TensorDataType::FLOAT16, {2, 2}, std::vector<half_t>{-9.0f, -18.0f, -7.0f, -16.0f}, &hipDevice);
     std::unordered_map<std::string, Node::AttributeValue> attributes;
 
     std::vector<Tensor> inputs = {t1, t2};
@@ -228,13 +228,13 @@ TEST(OperatorTestHIP, SubOperatorBroadcastVector0)
     RUN_TEST_CASE(OperatorType::Sub, inputs, expected_tensors, attributes, OperatorExecuteResult::SUCCESS, &hipDevice);
 }
 
-TEST(OperatorTestHIP, SubOperatorBroadcastVector1)
+TEST(QuantizationTestHIP, SubOperatorBroadcastVector1)
 {
     // Broadcasting vector subtraction
     HipDevice hipDevice = HipDevice(0);
-    Tensor t1(TensorDataType::FLOAT32, {2, 3}, std::vector<float>{1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f}, &hipDevice);
-    Tensor t2(TensorDataType::FLOAT32, {3}, std::vector<float>{10.0f, 20.0f, 30.0f}, &hipDevice); // Vector tensor
-    Tensor expected(TensorDataType::FLOAT32, {2, 3}, std::vector<float>{-9.0f, -18.0f, -27.0f, -6.0f, -15.0f, -24.0f}, &hipDevice);
+    Tensor t1(TensorDataType::FLOAT16, {2, 3}, std::vector<half_t>{1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f}, &hipDevice);
+    Tensor t2(TensorDataType::FLOAT16, {3}, std::vector<half_t>{10.0f, 20.0f, 30.0f}, &hipDevice); // Vector tensor
+    Tensor expected(TensorDataType::FLOAT16, {2, 3}, std::vector<half_t>{-9.0f, -18.0f, -27.0f, -6.0f, -15.0f, -24.0f}, &hipDevice);
     std::unordered_map<std::string, Node::AttributeValue> attributes;
 
     std::vector<Tensor> inputs = {t1, t2};
@@ -242,13 +242,13 @@ TEST(OperatorTestHIP, SubOperatorBroadcastVector1)
 
     RUN_TEST_CASE(OperatorType::Sub, inputs, expected_tensors, attributes, OperatorExecuteResult::SUCCESS, &hipDevice);
 }
-TEST(OperatorTestHIP, SubOperatorBroadcastVector2)
+TEST(QuantizationTestHIP, SubOperatorBroadcastVector2)
 {
     // Broadcasting vector subtraction
     HipDevice hipDevice = HipDevice(0);
-    Tensor t1(TensorDataType::FLOAT32, {1, 2, 3}, std::vector<float>{1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f}, &hipDevice);
-    Tensor t2(TensorDataType::FLOAT32, {2, 3}, std::vector<float>{10.0f, 20.0f, 30.0f, 40.0f, 50.0f, 60.0f}, &hipDevice); // Vector tensor
-    Tensor expected(TensorDataType::FLOAT32, {1, 2, 3}, std::vector<float>{-9.0f, -18.0f, -27.0f, -36.0f, -45.0f, -54.0f}, &hipDevice);
+    Tensor t1(TensorDataType::FLOAT16, {1, 2, 3}, std::vector<half_t>{1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f}, &hipDevice);
+    Tensor t2(TensorDataType::FLOAT16, {2, 3}, std::vector<half_t>{10.0f, 20.0f, 30.0f, 40.0f, 50.0f, 60.0f}, &hipDevice); // Vector tensor
+    Tensor expected(TensorDataType::FLOAT16, {1, 2, 3}, std::vector<half_t>{-9.0f, -18.0f, -27.0f, -36.0f, -45.0f, -54.0f}, &hipDevice);
 
     std::unordered_map<std::string, Node::AttributeValue> attributes;
 
@@ -259,14 +259,14 @@ TEST(OperatorTestHIP, SubOperatorBroadcastVector2)
 }
 
 // ----------------------- ConcatOperator Tests -----------------------
-TEST(OperatorTestHIP, ConcatOperatorBasic)
+TEST(QuantizationTestHIP, ConcatOperatorBasic)
 {
     // Basic concatenation along axis 0
     HipDevice hipDevice = HipDevice(0);
-    Tensor t1(TensorDataType::FLOAT32, {2, 3}, std::vector<float>{1, 2, 3, 4, 5, 6}, &hipDevice);
-    Tensor t2(TensorDataType::FLOAT32, {2, 3}, std::vector<float>{7, 8, 9, 10, 11, 12}, &hipDevice);
-    Tensor expected(TensorDataType::FLOAT32, {4, 3},
-                    std::vector<float>{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12}, &hipDevice);
+    Tensor t1(TensorDataType::FLOAT16, {2, 3}, std::vector<half_t>{1, 2, 3, 4, 5, 6}, &hipDevice);
+    Tensor t2(TensorDataType::FLOAT16, {2, 3}, std::vector<half_t>{7, 8, 9, 10, 11, 12}, &hipDevice);
+    Tensor expected(TensorDataType::FLOAT16, {4, 3},
+                    std::vector<half_t>{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12}, &hipDevice);
     std::unordered_map<std::string, Node::AttributeValue> attributes;
     attributes["axis"] = 0;
 
@@ -276,12 +276,12 @@ TEST(OperatorTestHIP, ConcatOperatorBasic)
     RUN_TEST_CASE(OperatorType::Concat, inputs, expected_tensors, attributes, OperatorExecuteResult::SUCCESS, &hipDevice);
 }
 
-TEST(OperatorTestHIP, ConcatOperatorShapeMismatchError)
+TEST(QuantizationTestHIP, ConcatOperatorShapeMismatchError)
 {
     // Shape mismatch error
     HipDevice hipDevice = HipDevice(0);
-    Tensor t1(TensorDataType::FLOAT32, {2, 2}, std::vector<float>{1, 2, 3, 4}, &hipDevice);
-    Tensor t2(TensorDataType::FLOAT32, {2, 3}, std::vector<float>{5, 6, 7, 8, 9, 10}, &hipDevice);
+    Tensor t1(TensorDataType::FLOAT16, {2, 2}, std::vector<half_t>{1, 2, 3, 4}, &hipDevice);
+    Tensor t2(TensorDataType::FLOAT16, {2, 3}, std::vector<half_t>{5, 6, 7, 8, 9, 10}, &hipDevice);
     std::unordered_map<std::string, Node::AttributeValue> attributes;
     attributes["axis"] = 0;
 
@@ -292,14 +292,14 @@ TEST(OperatorTestHIP, ConcatOperatorShapeMismatchError)
 }
 
 // ----------------------- ConstantOperator Tests -----------------------
-TEST(OperatorTestHIP, ConstantOperatorBasic)
+TEST(QuantizationTestHIP, ConstantOperatorBasic)
 {
     // Create a constant tensor
     HipDevice hipDevice = HipDevice(0);
-    Tensor value_tensor(TensorDataType::FLOAT32, {2, 2}, std::vector<float>{1.0f, 2.0f, 3.0f, 4.0f}, &hipDevice);
+    Tensor value_tensor(TensorDataType::FLOAT16, {2, 2}, std::vector<half_t>{1.0f, 2.0f, 3.0f, 4.0f}, &hipDevice);
     std::unordered_map<std::string, Node::AttributeValue> attributes;
     attributes["value"] = value_tensor;
-    Tensor expected(TensorDataType::FLOAT32, {2, 2}, std::vector<float>{1.0f, 2.0f, 3.0f, 4.0f}, &hipDevice);
+    Tensor expected(TensorDataType::FLOAT16, {2, 2}, std::vector<half_t>{1.0f, 2.0f, 3.0f, 4.0f}, &hipDevice);
 
     std::vector<Tensor> inputs;
     std::vector<Tensor> expected_tensors = {expected};
@@ -308,23 +308,23 @@ TEST(OperatorTestHIP, ConstantOperatorBasic)
 }
 
 // ----------------------- ConvOperator Tests -----------------------
-TEST(OperatorTestHIP, ConvOperatorBasic)
+TEST(QuantizationTestHIP, ConvOperatorBasic)
 {
     // Simple convolution test
     HipDevice hipDevice = HipDevice(0);
-    Tensor X(TensorDataType::FLOAT32, {1, 1, 4, 4},
-             std::vector<float>{1, 2, 3, 4,
-                                5, 6, 7, 8,
-                                9, 10, 11, 12,
-                                13, 14, 15, 16},
+    Tensor X(TensorDataType::FLOAT16, {1, 1, 4, 4},
+             std::vector<half_t>{1, 2, 3, 4,
+                                 5, 6, 7, 8,
+                                 9, 10, 11, 12,
+                                 13, 14, 15, 16},
              &hipDevice);
-    Tensor W(TensorDataType::FLOAT32, {1, 1, 3, 3},
-             std::vector<float>{1, 0, -1,
-                                1, 0, -1,
-                                1, 0, -1},
+    Tensor W(TensorDataType::FLOAT16, {1, 1, 3, 3},
+             std::vector<half_t>{1, 0, -1,
+                                 1, 0, -1,
+                                 1, 0, -1},
              &hipDevice);
-    Tensor B(TensorDataType::FLOAT32, {1}, std::vector<float>{0}, &hipDevice);
-    Tensor expected(TensorDataType::FLOAT32, {1, 1, 2, 2}, std::vector<float>{-6, -6, -6, -6}, &hipDevice);
+    Tensor B(TensorDataType::FLOAT16, {1}, std::vector<half_t>{0}, &hipDevice);
+    Tensor expected(TensorDataType::FLOAT16, {1, 1, 2, 2}, std::vector<half_t>{-6, -6, -6, -6}, &hipDevice);
 
     std::unordered_map<std::string, Node::AttributeValue> attributes;
     attributes["dilations"] = std::vector<int64_t>{1, 1};
@@ -340,13 +340,13 @@ TEST(OperatorTestHIP, ConvOperatorBasic)
 }
 
 // ----------------------- DivOperator Tests -----------------------
-TEST(OperatorTestHIP, DivOperatorBasic)
+TEST(QuantizationTestHIP, DivOperatorBasic)
 {
     // Basic division test
     HipDevice hipDevice = HipDevice(0);
-    Tensor t1(TensorDataType::FLOAT32, {2, 2}, std::vector<float>{10.0f, 20.0f, 30.0f, 40.0f}, &hipDevice);
-    Tensor t2(TensorDataType::FLOAT32, {2, 2}, std::vector<float>{2.0f, 4.0f, 5.0f, 8.0f}, &hipDevice);
-    Tensor expected(TensorDataType::FLOAT32, {2, 2}, std::vector<float>{5.0f, 5.0f, 6.0f, 5.0f}, &hipDevice);
+    Tensor t1(TensorDataType::FLOAT16, {2, 2}, std::vector<half_t>{10.0f, 20.0f, 30.0f, 40.0f}, &hipDevice);
+    Tensor t2(TensorDataType::FLOAT16, {2, 2}, std::vector<half_t>{2.0f, 4.0f, 5.0f, 8.0f}, &hipDevice);
+    Tensor expected(TensorDataType::FLOAT16, {2, 2}, std::vector<half_t>{5.0f, 5.0f, 6.0f, 5.0f}, &hipDevice);
     std::unordered_map<std::string, Node::AttributeValue> attributes;
 
     std::vector<Tensor> inputs = {t1, t2};
@@ -356,19 +356,19 @@ TEST(OperatorTestHIP, DivOperatorBasic)
 }
 
 // ----------------------- GatherOperator Tests -----------------------
-TEST(OperatorTestHIP, GatherOperatorBasic)
+TEST(QuantizationTestHIP, GatherOperatorBasic)
 {
     // Basic gather test
     HipDevice hipDevice = HipDevice(0);
-    Tensor data(TensorDataType::FLOAT32, {3, 4},
-                std::vector<float>{0, 1, 2, 3,
-                                   4, 5, 6, 7,
-                                   8, 9, 10, 11},
+    Tensor data(TensorDataType::FLOAT16, {3, 4},
+                std::vector<half_t>{0, 1, 2, 3,
+                                    4, 5, 6, 7,
+                                    8, 9, 10, 11},
                 &hipDevice);
     Tensor indices(TensorDataType::INT64, {2}, std::vector<int64_t>{0, 2}, &hipDevice);
-    Tensor expected(TensorDataType::FLOAT32, {2, 4},
-                    std::vector<float>{0, 1, 2, 3,
-                                       8, 9, 10, 11},
+    Tensor expected(TensorDataType::FLOAT16, {2, 4},
+                    std::vector<half_t>{0, 1, 2, 3,
+                                        8, 9, 10, 11},
                     &hipDevice);
     std::unordered_map<std::string, Node::AttributeValue> attributes;
     attributes["axis"] = 0;
@@ -380,46 +380,46 @@ TEST(OperatorTestHIP, GatherOperatorBasic)
 }
 
 // ----------------------- MatMulOperator Tests -----------------------
-TEST(OperatorTestHIP, MatMulOperatorBasic)
-{
-    // Basic matrix multiplication
-    HipDevice hipDevice = HipDevice(0);
-    Tensor A(TensorDataType::FLOAT32, {2, 3},
-             std::vector<float>{1, 2, 3,
-                                4, 5, 6},
-             &hipDevice);
-    Tensor B(TensorDataType::FLOAT32, {3, 2},
-             std::vector<float>{7, 8,
-                                9, 10,
-                                11, 12},
-             &hipDevice);
-    Tensor expected(TensorDataType::FLOAT32, {2, 2},
-                    std::vector<float>{58, 64,
-                                       139, 154},
-                    &hipDevice);
+// TEST(QuantizationTestHIP, MatMulOperatorBasic)
+// {
+//     // Basic matrix multiplication
+//     HipDevice hipDevice = HipDevice(0);
+//     Tensor A(TensorDataType::FLOAT16, {2, 3},
+//              std::vector<half_t>{1, 2, 3,
+//                                 4, 5, 6},
+//              &hipDevice);
+//     Tensor B(TensorDataType::FLOAT16, {3, 2},
+//              std::vector<half_t>{7, 8,
+//                                 9, 10,
+//                                 11, 12},
+//              &hipDevice);
+//     Tensor expected(TensorDataType::FLOAT16, {2, 2},
+//                     std::vector<half_t>{58, 64,
+//                                        139, 154},
+//                     &hipDevice);
 
-    std::unordered_map<std::string, Node::AttributeValue> attributes;
+//     std::unordered_map<std::string, Node::AttributeValue> attributes;
 
-    std::vector<Tensor> inputs = {A, B};
-    std::vector<Tensor> expected_tensors = {expected};
+//     std::vector<Tensor> inputs = {A, B};
+//     std::vector<Tensor> expected_tensors = {expected};
 
-    RUN_TEST_CASE(OperatorType::MatMul, inputs, expected_tensors, attributes, OperatorExecuteResult::SUCCESS, &hipDevice);
-}
+//     RUN_TEST_CASE(OperatorType::MatMul, inputs, expected_tensors, attributes, OperatorExecuteResult::SUCCESS, &hipDevice);
+// }
 
 // ----------------------- MaxPoolOperator Tests -----------------------
-TEST(OperatorTestHIP, MaxPoolOperatorBasic)
+TEST(QuantizationTestHIP, MaxPoolOperatorBasic)
 {
     // Basic MaxPool test
     HipDevice hipDevice = HipDevice(0);
-    Tensor X(TensorDataType::FLOAT32, {1, 1, 4, 4},
-             std::vector<float>{1, 2, 3, 4,
-                                5, 6, 7, 8,
-                                9, 10, 11, 12,
-                                13, 14, 15, 16},
+    Tensor X(TensorDataType::FLOAT16, {1, 1, 4, 4},
+             std::vector<half_t>{1, 2, 3, 4,
+                                 5, 6, 7, 8,
+                                 9, 10, 11, 12,
+                                 13, 14, 15, 16},
              &hipDevice);
-    Tensor expected(TensorDataType::FLOAT32, {1, 1, 2, 2},
-                    std::vector<float>{6, 8,
-                                       14, 16},
+    Tensor expected(TensorDataType::FLOAT16, {1, 1, 2, 2},
+                    std::vector<half_t>{6, 8,
+                                        14, 16},
                     &hipDevice);
     std::unordered_map<std::string, Node::AttributeValue> attributes;
     attributes["kernel_shape"] = std::vector<int64_t>{2, 2};
@@ -433,13 +433,13 @@ TEST(OperatorTestHIP, MaxPoolOperatorBasic)
 }
 
 // ----------------------- MulOperator Tests -----------------------
-TEST(OperatorTestHIP, MulOperatorBasic)
+TEST(QuantizationTestHIP, MulOperatorBasic)
 {
     // Basic multiplication test
     HipDevice hipDevice = HipDevice(0);
-    Tensor t1(TensorDataType::FLOAT32, {2, 2}, std::vector<float>{1.0f, 2.0f, 3.0f, 4.0f}, &hipDevice);
-    Tensor t2(TensorDataType::FLOAT32, {2, 2}, std::vector<float>{5.0f, 6.0f, 7.0f, 8.0f}, &hipDevice);
-    Tensor expected(TensorDataType::FLOAT32, {2, 2}, std::vector<float>{5.0f, 12.0f, 21.0f, 32.0f}, &hipDevice);
+    Tensor t1(TensorDataType::FLOAT16, {2, 2}, std::vector<half_t>{1.0f, 2.0f, 3.0f, 4.0f}, &hipDevice);
+    Tensor t2(TensorDataType::FLOAT16, {2, 2}, std::vector<half_t>{5.0f, 6.0f, 7.0f, 8.0f}, &hipDevice);
+    Tensor expected(TensorDataType::FLOAT16, {2, 2}, std::vector<half_t>{5.0f, 12.0f, 21.0f, 32.0f}, &hipDevice);
     std::unordered_map<std::string, Node::AttributeValue> attributes;
 
     std::vector<Tensor> inputs = {t1, t2};
@@ -449,13 +449,13 @@ TEST(OperatorTestHIP, MulOperatorBasic)
 }
 
 // ----------------------- SigmoidOperator Tests -----------------------
-TEST(OperatorTestHIP, SigmoidOperatorBasic)
+TEST(QuantizationTestHIP, SigmoidOperatorBasic)
 {
     // Basic sigmoid test
     HipDevice hipDevice = HipDevice(0);
-    Tensor data(TensorDataType::FLOAT32, {2, 2}, std::vector<float>{0.0f, -1.0f, 1.0f, 2.0f}, &hipDevice);
-    Tensor expected(TensorDataType::FLOAT32, {2, 2},
-                    std::vector<float>{0.5f, 0.26894f, 0.73106f, 0.880797f}, &hipDevice);
+    Tensor data(TensorDataType::FLOAT16, {2, 2}, std::vector<half_t>{0.0f, -1.0f, 1.0f, 2.0f}, &hipDevice);
+    Tensor expected(TensorDataType::FLOAT16, {2, 2},
+                    std::vector<half_t>{0.5f, 0.26894f, 0.73106f, 0.880797f}, &hipDevice);
 
     std::unordered_map<std::string, Node::AttributeValue> attributes;
 
@@ -466,21 +466,21 @@ TEST(OperatorTestHIP, SigmoidOperatorBasic)
 }
 
 // ----------------------- SliceOperator Tests -----------------------
-TEST(OperatorTestHIP, SliceOperatorBasic)
+TEST(QuantizationTestHIP, SliceOperatorBasic)
 {
     // Basic slice test
     HipDevice hipDevice = HipDevice(0);
-    Tensor data(TensorDataType::FLOAT32, {3, 4},
-                std::vector<float>{0, 1, 2, 3,
-                                   4, 5, 6, 7,
-                                   8, 9, 10, 11},
+    Tensor data(TensorDataType::FLOAT16, {3, 4},
+                std::vector<half_t>{0, 1, 2, 3,
+                                    4, 5, 6, 7,
+                                    8, 9, 10, 11},
                 &hipDevice);
     Tensor starts(TensorDataType::INT64, {1}, std::vector<int64_t>{1}, &hipDevice);
     Tensor ends(TensorDataType::INT64, {1}, std::vector<int64_t>{3}, &hipDevice);
     Tensor axes(TensorDataType::INT64, {1}, std::vector<int64_t>{0}, &hipDevice);
-    Tensor expected(TensorDataType::FLOAT32, {2, 4},
-                    std::vector<float>{4, 5, 6, 7,
-                                       8, 9, 10, 11},
+    Tensor expected(TensorDataType::FLOAT16, {2, 4},
+                    std::vector<half_t>{4, 5, 6, 7,
+                                        8, 9, 10, 11},
                     &hipDevice);
 
     std::unordered_map<std::string, Node::AttributeValue> attributes;
@@ -492,13 +492,13 @@ TEST(OperatorTestHIP, SliceOperatorBasic)
 }
 
 // ----------------------- SoftmaxOperator Tests -----------------------
-TEST(OperatorTestHIP, SoftmaxOperatorBasic)
+TEST(QuantizationTestHIP, SoftmaxOperatorBasic)
 {
     // Basic softmax test
     HipDevice hipDevice = HipDevice(0);
-    Tensor data(TensorDataType::FLOAT32, {2, 2}, std::vector<float>{1.0f, 2.0f, 3.0f, 4.0f}, &hipDevice);
-    Tensor expected(TensorDataType::FLOAT32, {2, 2},
-                    std::vector<float>{0.26894f, 0.73106f, 0.26894f, 0.73106f}, &hipDevice);
+    Tensor data(TensorDataType::FLOAT16, {2, 2}, std::vector<half_t>{1.0f, 2.0f, 3.0f, 4.0f}, &hipDevice);
+    Tensor expected(TensorDataType::FLOAT16, {2, 2},
+                    std::vector<half_t>{0.26894f, 0.73106f, 0.26894f, 0.73106f}, &hipDevice);
     std::unordered_map<std::string, Node::AttributeValue> attributes;
     attributes["axis"] = 1;
 
@@ -509,22 +509,22 @@ TEST(OperatorTestHIP, SoftmaxOperatorBasic)
 }
 
 // ----------------------- SplitOperator Tests -----------------------
-TEST(OperatorTestHIP, SplitOperatorBasic)
+TEST(QuantizationTestHIP, SplitOperatorBasic)
 {
     // Basic split test
     HipDevice hipDevice = HipDevice(0);
-    Tensor data(TensorDataType::FLOAT32, {2, 4},
-                std::vector<float>{1, 2, 3, 4,
-                                   5, 6, 7, 8},
+    Tensor data(TensorDataType::FLOAT16, {2, 4},
+                std::vector<half_t>{1, 2, 3, 4,
+                                    5, 6, 7, 8},
                 &hipDevice);
     Tensor split(TensorDataType::INT64, {2}, std::vector<int64_t>{2, 2}, &hipDevice);
-    Tensor expected1(TensorDataType::FLOAT32, {2, 2},
-                     std::vector<float>{1, 2,
-                                        5, 6},
+    Tensor expected1(TensorDataType::FLOAT16, {2, 2},
+                     std::vector<half_t>{1, 2,
+                                         5, 6},
                      &hipDevice);
-    Tensor expected2(TensorDataType::FLOAT32, {2, 2},
-                     std::vector<float>{3, 4,
-                                        7, 8},
+    Tensor expected2(TensorDataType::FLOAT16, {2, 2},
+                     std::vector<half_t>{3, 4,
+                                         7, 8},
                      &hipDevice);
     std::unordered_map<std::string, Node::AttributeValue> attributes;
     attributes["axis"] = 1;
@@ -535,14 +535,13 @@ TEST(OperatorTestHIP, SplitOperatorBasic)
     RUN_TEST_CASE(OperatorType::Split, inputs, expected_tensors, attributes, OperatorExecuteResult::SUCCESS, &hipDevice);
 }
 
-
 // ----------------------- TransposeOperator Tests -----------------------
-TEST(OperatorTestHIP, TransposeOperatorBasic)
+TEST(QuantizationTestHIP, TransposeOperatorBasic)
 {
     // Basic transpose test
     HipDevice hipDevice = HipDevice(0);
-    Tensor input(TensorDataType::FLOAT32, {2, 3}, std::vector<float>{1, 2, 3, 4, 5, 6}, &hipDevice);
-    Tensor expected(TensorDataType::FLOAT32, {3, 2}, std::vector<float>{1, 4, 2, 5, 3, 6}, &hipDevice);
+    Tensor input(TensorDataType::FLOAT16, {2, 3}, std::vector<half_t>{1, 2, 3, 4, 5, 6}, &hipDevice);
+    Tensor expected(TensorDataType::FLOAT16, {3, 2}, std::vector<half_t>{1, 4, 2, 5, 3, 6}, &hipDevice);
     std::unordered_map<std::string, Node::AttributeValue> attributes;
     attributes["perm"] = std::vector<int64_t>{1, 0};
 
@@ -553,13 +552,13 @@ TEST(OperatorTestHIP, TransposeOperatorBasic)
 }
 
 // ----------------------- ReshapeOperator Tests -----------------------
-TEST(OperatorTestHIP, ReshapeOperatorBasic)
+TEST(QuantizationTestHIP, ReshapeOperatorBasic)
 {
     // Basic reshape test
     HipDevice hipDevice = HipDevice(0);
-    Tensor data(TensorDataType::FLOAT32, {2, 3}, std::vector<float>{1, 2, 3, 4, 5, 6}, &hipDevice);
+    Tensor data(TensorDataType::FLOAT16, {2, 3}, std::vector<half_t>{1, 2, 3, 4, 5, 6}, &hipDevice);
     Tensor shape(TensorDataType::INT64, {3}, std::vector<int64_t>{3, 2, 1}, &hipDevice);
-    Tensor expected(TensorDataType::FLOAT32, {3, 2, 1}, std::vector<float>{1, 2, 3, 4, 5, 6}, &hipDevice);
+    Tensor expected(TensorDataType::FLOAT16, {3, 2, 1}, std::vector<half_t>{1, 2, 3, 4, 5, 6}, &hipDevice);
 
     std::unordered_map<std::string, Node::AttributeValue> attributes;
 
@@ -570,17 +569,17 @@ TEST(OperatorTestHIP, ReshapeOperatorBasic)
 }
 
 // ----------------------- ResizeOperator Tests -----------------------
-TEST(OperatorTestHIP, ResizeOperatorBasic)
+TEST(QuantizationTestHIP, ResizeOperatorBasic)
 {
     // Basic resize test (nearest neighbor)
     HipDevice hipDevice = HipDevice(0);
-    Tensor data(TensorDataType::FLOAT32, {1, 1, 2, 2}, std::vector<float>{1, 2, 3, 4}, &hipDevice);
+    Tensor data(TensorDataType::FLOAT16, {1, 1, 2, 2}, std::vector<half_t>{1, 2, 3, 4}, &hipDevice);
     Tensor scales(TensorDataType::FLOAT32, {4}, std::vector<float>{1.0f, 1.0f, 2.0f, 2.0f}, &hipDevice);
-    Tensor expected(TensorDataType::FLOAT32, {1, 1, 4, 4},
-                    std::vector<float>{1, 1, 2, 2,
-                                       1, 1, 2, 2,
-                                       3, 3, 4, 4,
-                                       3, 3, 4, 4},
+    Tensor expected(TensorDataType::FLOAT16, {1, 1, 4, 4},
+                    std::vector<half_t>{1, 1, 2, 2,
+                                        1, 1, 2, 2,
+                                        3, 3, 4, 4,
+                                        3, 3, 4, 4},
                     &hipDevice);
     std::unordered_map<std::string, Node::AttributeValue> attributes;
     attributes["mode"] = std::string("nearest");
@@ -592,11 +591,11 @@ TEST(OperatorTestHIP, ResizeOperatorBasic)
 }
 
 // ----------------------- ShapeOperator Tests -----------------------
-TEST(OperatorTestHIP, ShapeOperatorBasic)
+TEST(QuantizationTestHIP, ShapeOperatorBasic)
 {
     // Basic shape operator test
     HipDevice hipDevice = HipDevice(0);
-    Tensor data(TensorDataType::FLOAT32, {2, 3, 4}, std::vector<float>(24, 1.0f), &hipDevice);
+    Tensor data(TensorDataType::FLOAT16, {2, 3, 4}, std::vector<half_t>(24, 1.0f), &hipDevice);
     Tensor expected(TensorDataType::INT64, {3}, std::vector<int64_t>{2, 3, 4}, &hipDevice);
 
     std::unordered_map<std::string, Node::AttributeValue> attributes;

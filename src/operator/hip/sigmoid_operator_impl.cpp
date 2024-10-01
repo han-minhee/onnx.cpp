@@ -12,12 +12,26 @@
 namespace HIP_OP
 {
     template <typename T>
+    __device__ T sigmoid(T x)
+    {
+        return 1.0f / (1.0f + exp(-x));
+    }
+
+    template <>
+    __device__ __half sigmoid<__half>(__half x)
+    {
+        float x_float = __half2float(x);               // Convert __half to float
+        float result = 1.0f / (1.0f + expf(-x_float)); // Use expf for float
+        return __float2half(result);                   // Convert back to __half
+    }
+
+    template <typename T>
     __global__ void sigmoid_kernel(const T *input, T *output, size_t num_elements)
     {
         size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
         if (idx < num_elements)
         {
-            output[idx] = 1.0f / (1.0f + exp(-input[idx]));
+            output[idx] = sigmoid(input[idx]);
         }
     }
 
@@ -51,6 +65,13 @@ namespace HIP_OP
                                                     static_cast<double *>(output_data),
                                                     num_elements));
             break;
+        case TensorDataType::FLOAT16:
+            hipKernelLaunchCheck(hipLaunchKernelGGL(sigmoid_kernel<__half>, gridSize, blockSize, 0, 0,
+                                                    static_cast<const __half *>(input_data),
+                                                    static_cast<__half *>(output_data),
+                                                    num_elements));
+            break;
+
         // Add cases for other data types as needed
         default:
             return OperatorExecuteResult::DATA_TYPE_ERROR;

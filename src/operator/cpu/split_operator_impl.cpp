@@ -116,6 +116,8 @@ namespace CPU_OP
             return executeSplit<int8_t>(input, outputs, output_shapes, split_sizes, axis);
         case TensorDataType::UINT8:
             return executeSplit<uint8_t>(input, outputs, output_shapes, split_sizes, axis);
+        case TensorDataType::FLOAT16:
+            return executeSplit<half_t>(input, outputs, output_shapes, split_sizes, axis);
         default:
             return OperatorExecuteResult::DATA_TYPE_ERROR;
         }

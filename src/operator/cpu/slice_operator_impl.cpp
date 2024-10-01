@@ -86,7 +86,6 @@ namespace CPU_OP
         }
     }
 
-
     template <typename T>
     void performSlicingRecursive(const Tensor &input_tensor, Tensor *output_tensor, size_t dim, size_t offset,
                                  const std::vector<int64_t> &effective_starts, const std::vector<int64_t> &effective_steps,
@@ -141,6 +140,9 @@ namespace CPU_OP
             break;
         case TensorDataType::UINT8:
             performSlicingRecursive<uint8_t>(input_tensor, output_tensor, dim, offset, effective_starts, effective_steps, output_dims, input_idx, output_idx);
+            break;
+        case TensorDataType::FLOAT16:
+            performSlicingRecursive<half_t>(input_tensor, output_tensor, dim, offset, effective_starts, effective_steps, output_dims, input_idx, output_idx);
             break;
         default:
             throw std::runtime_error("Unsupported data type in SliceOperator");

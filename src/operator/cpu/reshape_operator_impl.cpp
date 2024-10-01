@@ -94,24 +94,9 @@ namespace CPU_OP
                                                        const std::unordered_map<std::string, Node::AttributeValue> &attributes)
     {
 
-        if (inputs.size() != 2)
-        {
-            return OperatorExecuteResult::INPUT_TENSOR_ERROR;
-        }
-
-        if (outputs.empty() || outputs[0] == nullptr)
-        {
-            return OperatorExecuteResult::OUTPUT_TENSOR_ERROR;
-        }
-
         const Tensor &input_tensor = inputs[0];
         const Tensor &shape_tensor = inputs[1];
         Tensor *output_tensor = outputs[0];
-
-        if (shape_tensor.getDataType() != TensorDataType::INT64 || shape_tensor.getNDim() != 1)
-        {
-            return OperatorExecuteResult::DATA_TYPE_ERROR;
-        }
 
         bool allowzero = false;
         if (attributes.find("allowzero") != attributes.end())
@@ -133,6 +118,8 @@ namespace CPU_OP
             return executeReshape<int8_t>(input_tensor, shape_tensor, output_tensor, allowzero);
         case TensorDataType::UINT8:
             return executeReshape<uint8_t>(input_tensor, shape_tensor, output_tensor, allowzero);
+        case TensorDataType::FLOAT16:
+            return executeReshape<half_t>(input_tensor, shape_tensor, output_tensor, allowzero);
         default:
             return OperatorExecuteResult::UNSUPPORTED_OPERATION;
         }

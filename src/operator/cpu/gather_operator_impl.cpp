@@ -80,6 +80,12 @@ namespace CPU_OP
             return executeGather<int32_t>(input, indices, output, axis);
         case TensorDataType::INT64:
             return executeGather<int64_t>(input, indices, output, axis);
+        case TensorDataType::INT8:
+            return executeGather<int8_t>(input, indices, output, axis);
+        case TensorDataType::UINT8:
+            return executeGather<uint8_t>(input, indices, output, axis);
+        case TensorDataType::FLOAT16:
+            return executeGather<half_t>(input, indices, output, axis);
         default:
             return OperatorExecuteResult::DATA_TYPE_ERROR;
         }

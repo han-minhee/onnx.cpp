@@ -10,24 +10,7 @@ namespace CPU_OP
     {
         const T *A_data = A.data<T>();
         const T *B_data = B.data<T>();
-
-        if (!A_data || !B_data)
-        {
-            return OperatorExecuteResult::INPUT_TENSOR_ERROR;
-        }
-
-        // Allocate buffer for output data if not already allocated or if dimensions mismatch
-        if (!Y->data<T>() || Y->getNumElements() != dim_A_row * dim_B_col)
-        {
-            Y->allocateBuffer(A.getDataType(), dim_A_row * dim_B_col);
-            Y->reshape({dim_A_row, dim_B_col});
-        }
-
         T *Y_data = Y->data<T>();
-        if (!Y_data)
-        {
-            return OperatorExecuteResult::MEMORY_ALLOCATION_ERROR;
-        }
 
         // Initialize output data
         std::fill(Y_data, Y_data + (dim_A_row * dim_B_col), static_cast<T>(0));
@@ -40,7 +23,7 @@ namespace CPU_OP
                 T sum = 0;
                 for (size_t k = 0; k < dim_A_col; ++k)
                 {
-                    sum += A_data[i * dim_A_col + k] * B_data[k * dim_B_col + j];
+                    sum = sum + A_data[i * dim_A_col + k] * B_data[k * dim_B_col + j];
                 }
                 Y_data[i * dim_B_col + j] = sum;
             }
@@ -105,6 +88,8 @@ namespace CPU_OP
             return executeMatMul<int8_t>(A, B, Y, dim_A_row, dim_A_col, dim_B_col);
         case TensorDataType::UINT8:
             return executeMatMul<uint8_t>(A, B, Y, dim_A_row, dim_A_col, dim_B_col);
+        case TensorDataType::FLOAT16:
+            return executeMatMul<half_t>(A, B, Y, dim_A_row, dim_A_col, dim_B_col);
         default:
             return OperatorExecuteResult::DATA_TYPE_ERROR;
         }

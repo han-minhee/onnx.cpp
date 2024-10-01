@@ -17,23 +17,8 @@ namespace CPU_OP
                                          size_t spatial_rank)
     {
         const T *input_data = X.data<T>();
-        if (!input_data)
-        {
-            return OperatorExecuteResult::INPUT_TENSOR_ERROR;
-        }
-
-        // Ensure Y's buffer is allocated with the correct size and data type
         size_t output_size = Y->getNumElements();
-        if (!Y->data<T>() || Y->getNumElements() != output_size)
-        {
-            Y->allocateBuffer(X.getDataType(), output_size);
-        }
-
         T *output_data = Y->data<T>();
-        if (!output_data)
-        {
-            return OperatorExecuteResult::MEMORY_ALLOCATION_ERROR;
-        }
 
         for (size_t n = 0; n < N; ++n)
         {
@@ -126,11 +111,6 @@ namespace CPU_OP
         }
         output_spatial_shape.erase(output_spatial_shape.begin(), output_spatial_shape.begin() + 2);
 
-        // Ensure Y is reshaped correctly before passing to executeMaxPool
-        Y->reshape({N, C, output_spatial_shape[0], output_spatial_shape[1]});
-        Y->setDataType(X.getDataType());
-        Y->allocateBuffer(X.getDataType(), Y->getNumElements());
-
         switch (X.getDataType())
         {
         case TensorDataType::FLOAT32:
@@ -145,6 +125,9 @@ namespace CPU_OP
             return executeMaxPool<int8_t>(X, Y, kernel_shape, pads, strides, dilations, N, C, input_spatial_shape, output_spatial_shape, spatial_rank);
         case TensorDataType::UINT8:
             return executeMaxPool<uint8_t>(X, Y, kernel_shape, pads, strides, dilations, N, C, input_spatial_shape, output_spatial_shape, spatial_rank);
+
+        case TensorDataType::FLOAT16:
+            return executeMaxPool<half_t>(X, Y, kernel_shape, pads, strides, dilations, N, C, input_spatial_shape, output_spatial_shape, spatial_rank);
         default:
             return OperatorExecuteResult::DATA_TYPE_ERROR;
         }
