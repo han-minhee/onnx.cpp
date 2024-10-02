@@ -22,12 +22,7 @@ namespace CPU_OP
             inner_size *= output->getDims()[i];
         }
 
-        // Check and allocate memory for the output tensor using the buffer
         size_t output_num_elements = output->getNumElements();
-        if (!output->getBuffer() || output->getNumElements() != output_num_elements)
-        {
-            output->allocateBuffer(output->getDataType(), output_num_elements);
-        }
 
         T *output_data = output->data<T>(); // Access the buffer's data
         if (!output_data)

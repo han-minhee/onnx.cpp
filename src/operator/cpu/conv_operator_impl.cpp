@@ -5,10 +5,10 @@
 
 namespace CPU_OP
 {
-    bool useWinograd(const std::vector<size_t> &kernel_shape, const std::vector<size_t> &strides,
-                     const std::vector<size_t> &dilations, size_t C, size_t M, size_t H, size_t W_in)
+    bool useWinograd(const std::vector<int64_t> &kernel_shape, const std::vector<int64_t> &strides,
+                     const std::vector<int64_t> &dilations, int64_t C, int64_t M, int64_t H, int64_t W_in)
     {
-
+        return false;
         if (!(kernel_shape[0] == 3 && kernel_shape[1] == 3))
         {
             return false;
@@ -24,12 +24,7 @@ namespace CPU_OP
             return false;
         }
 
-        if (C < 16 || M < 16)
-        {
-            return false;
-        }
-
-        if (H < 16 || W_in < 16)
+        if (C < 16 || M < 16 || H < 16 || W_in < 16) // return if it's too small
         {
             return false;
         }
@@ -38,47 +33,61 @@ namespace CPU_OP
     }
 
     template <typename T>
-    OperatorExecuteResult executeConv(const Tensor &X, const Tensor &W, const Tensor *B, Tensor *Y,
-                                      const std::vector<int64_t> &pads, const std::vector<size_t> &strides,
-                                      const std::vector<size_t> &dilations, int64_t group, size_t N, size_t C,
-                                      size_t H, size_t W_in, size_t M, size_t kH, size_t kW, size_t H_out, size_t W_out)
+    OperatorExecuteResult executeConv(
+        /// FIXME: change all tensors to use pointers
+        // tensors
+        const Tensor &X, const Tensor &W, const Tensor *B, Tensor *Y,
+        // attributes
+        const std::vector<int64_t> &pads, const std::vector<int64_t> &strides, const std::vector<int64_t> &dilations, int64_t group,
+        // X shapes
+        int64_t N, int64_t C, int64_t H, int64_t W_in,
+        // W shapes
+        int64_t M, int64_t kH, int64_t kW,
+        // Y shapes
+        int64_t H_out, int64_t W_out)
     {
 
         const T *input_data = X.data<T>();
         const T *weight_data = W.data<T>();
         const T *bias_data = B ? B->data<T>() : nullptr;
-
         T *output_data = Y->data<T>();
+
+        // initialize output tensor to 0
         std::fill(output_data, output_data + (N * M * H_out * W_out), static_cast<T>(0));
 
-        for (size_t g = 0; g < static_cast<size_t>(group); ++g)
+        for (int64_t g = 0; g < group; ++g)
         {
-            for (size_t n = 0; n < N; ++n)
+            // for N batch
+            for (int64_t n = 0; n < N; ++n)
             {
-                for (size_t m = 0; m < M / group; ++m)
+                // for M output channels
+                for (int64_t m = 0; m < M / group; ++m)
                 {
-                    for (size_t h_out = 0; h_out < H_out; ++h_out)
+                    // output index (h,out, w_out)
+                    for (int64_t h_out = 0; h_out < H_out; ++h_out)
                     {
-                        for (size_t w_out = 0; w_out < W_out; ++w_out)
+                        for (int64_t w_out = 0; w_out < W_out; ++w_out)
                         {
-                            T sum = 0;
+                            int64_t output_idx = n * (M * H_out * W_out) +
+                                                 (g * (M / group) + m) * (H_out * W_out) +
+                                                 h_out * W_out + w_out;
 
-                            for (size_t c = 0; c < C / group; ++c)
+                            for (int64_t c = 0; c < C / group; ++c)
                             {
-                                for (size_t kh = 0; kh < kH; ++kh)
+                                for (int64_t kh = 0; kh < kH; ++kh)
                                 {
-                                    for (size_t kw = 0; kw < kW; ++kw)
+                                    for (int64_t kw = 0; kw < kW; ++kw)
                                     {
-                                        int64_t h_in = static_cast<int64_t>(h_out) * static_cast<int64_t>(strides[0]) +
-                                                       static_cast<int64_t>(kh) * static_cast<int64_t>(dilations[0]) - pads[0];
-                                        int64_t w_in = static_cast<int64_t>(w_out) * static_cast<int64_t>(strides[1]) +
-                                                       static_cast<int64_t>(kw) * static_cast<int64_t>(dilations[1]) - pads[1];
+                                        int64_t h_in = h_out * strides[0] +
+                                                       kh * dilations[0] - pads[0];
+                                        int64_t w_in = w_out * strides[1] +
+                                                       kw * dilations[1] - pads[1];
 
-                                        if (h_in >= 0 && h_in < static_cast<int64_t>(H) && w_in >= 0 && w_in < static_cast<int64_t>(W_in))
+                                        if (h_in >= 0 && h_in < H && w_in >= 0 && w_in < W_in)
                                         {
-                                            size_t input_idx = n * (C * H * W_in) + (g * (C / group) + c) * (H * W_in) + static_cast<size_t>(h_in) * W_in + static_cast<size_t>(w_in);
-                                            size_t weight_idx = (g * (M / group) + m) * (C / group * kH * kW) + c * (kH * kW) + kh * kW + kw;
-                                            sum += input_data[input_idx] * weight_data[weight_idx];
+                                            int64_t input_idx = n * (C * H * W_in) + (g * (C / group) + c) * (H * W_in) + h_in * W_in + w_in;
+                                            int64_t weight_idx = (g * (M / group) + m) * (C / group * kH * kW) + c * (kH * kW) + kh * kW + kw;
+                                            output_data[output_idx] += input_data[input_idx] * weight_data[weight_idx];
                                         }
                                     }
                                 }
@@ -86,58 +95,53 @@ namespace CPU_OP
 
                             if (bias_data)
                             {
-                                sum += bias_data[g * (M / group) + m];
+                                output_data[output_idx] += bias_data[g * (M / group) + m];
                             }
-
-                            size_t output_idx = n * (M * H_out * W_out) +
-                                                (g * (M / group) + m) * (H_out * W_out) +
-                                                h_out * W_out + w_out;
-                            output_data[output_idx] = sum;
                         }
                     }
                 }
             }
         }
-
         return OperatorExecuteResult::SUCCESS;
     }
 
     template <typename T>
     void winogradTransformKernel(const T kernel[3][3], T transformed_kernel[4][4])
     {
+        // G * d * Gt
 
         const T G[4][3] = {
             {1.0f, 0.0f, 0.0f},
             {0.5f, 0.5f, 0.5f},
             {0.5f, -0.5f, 0.5f},
             {0.0f, 0.0f, 1.0f}};
-        const T GT[3][4] = {
+        const T Gt[3][4] = {
             {1.0f, 0.5f, 0.5f, 0.0f},
             {0.0f, 0.5f, -0.5f, 0.0f},
             {0.0f, 0.5f, 0.5f, 1.0f}};
 
         T temp[4][3];
 
-        for (size_t i = 0; i < 4; ++i)
+        for (int64_t i = 0; i < 4; ++i)
         {
-            for (size_t j = 0; j < 3; ++j)
+            for (int64_t j = 0; j < 3; ++j)
             {
                 temp[i][j] = 0;
-                for (size_t k = 0; k < 3; ++k)
+                for (int64_t k = 0; k < 3; ++k)
                 {
                     temp[i][j] += G[i][k] * kernel[k][j];
                 }
             }
         }
 
-        for (size_t i = 0; i < 4; ++i)
+        for (int64_t i = 0; i < 4; ++i)
         {
-            for (size_t j = 0; j < 4; ++j)
+            for (int64_t j = 0; j < 4; ++j)
             {
                 transformed_kernel[i][j] = 0;
-                for (size_t k = 0; k < 3; ++k)
+                for (int64_t k = 0; k < 3; ++k)
                 {
-                    transformed_kernel[i][j] += temp[i][k] * GT[k][j];
+                    transformed_kernel[i][j] += temp[i][k] * Gt[k][j];
                 }
             }
         }
@@ -146,7 +150,7 @@ namespace CPU_OP
     template <typename T>
     void winogradTransformInput(const T d[4][4], T transformed_input[4][4])
     {
-
+        // B * d * Bt
         const T Bt[4][4] = {
             {1.0f, 0.0f, -1.0f, 0.0f},
             {0.0f, 1.0f, 1.0f, 0.0f},
@@ -160,24 +164,24 @@ namespace CPU_OP
 
         T temp[4][4];
 
-        for (size_t i = 0; i < 4; ++i)
+        for (int64_t i = 0; i < 4; ++i)
         {
-            for (size_t j = 0; j < 4; ++j)
+            for (int64_t j = 0; j < 4; ++j)
             {
                 temp[i][j] = 0;
-                for (size_t k = 0; k < 4; ++k)
+                for (int64_t k = 0; k < 4; ++k)
                 {
                     temp[i][j] += Bt[i][k] * d[k][j];
                 }
             }
         }
 
-        for (size_t i = 0; i < 4; ++i)
+        for (int64_t i = 0; i < 4; ++i)
         {
-            for (size_t j = 0; j < 4; ++j)
+            for (int64_t j = 0; j < 4; ++j)
             {
                 transformed_input[i][j] = 0;
-                for (size_t k = 0; k < 4; ++k)
+                for (int64_t k = 0; k < 4; ++k)
                 {
                     transformed_input[i][j] += temp[i][k] * BtT[k][j];
                 }
@@ -188,6 +192,7 @@ namespace CPU_OP
     template <typename T>
     void winogradTransformOutput(const T m[4][4], T output_tile[2][2])
     {
+        // At * m * A
 
         const T At[2][4] = {
             {1.0f, 1.0f, 1.0f, 0.0f},
@@ -200,24 +205,24 @@ namespace CPU_OP
 
         T temp[2][4];
 
-        for (size_t i = 0; i < 2; ++i)
+        for (int64_t i = 0; i < 2; ++i)
         {
-            for (size_t j = 0; j < 4; ++j)
+            for (int64_t j = 0; j < 4; ++j)
             {
                 temp[i][j] = 0;
-                for (size_t k = 0; k < 4; ++k)
+                for (int64_t k = 0; k < 4; ++k)
                 {
                     temp[i][j] += AtT[k][i] * m[k][j];
                 }
             }
         }
 
-        for (size_t i = 0; i < 2; ++i)
+        for (int64_t i = 0; i < 2; ++i)
         {
-            for (size_t j = 0; j < 2; ++j)
+            for (int64_t j = 0; j < 2; ++j)
             {
                 output_tile[i][j] = 0;
-                for (size_t k = 0; k < 4; ++k)
+                for (int64_t k = 0; k < 4; ++k)
                 {
                     output_tile[i][j] += temp[i][k] * At[j][k];
                 }
@@ -226,17 +231,19 @@ namespace CPU_OP
     }
 
     template <typename T>
-    OperatorExecuteResult executeWinogradConv(const Tensor &X, const Tensor &W, const Tensor *B, Tensor *Y,
-                                              const std::vector<int64_t> &pads, const std::vector<size_t> &strides,
-                                              const std::vector<size_t> &dilations, int64_t group, size_t N, size_t C,
-                                              size_t H, size_t W_in, size_t M, size_t kH, size_t kW, size_t H_out, size_t W_out)
+    OperatorExecuteResult executeWinogradConv(
+        /// FIXME: change all tensors to use pointers
+        // tensors
+        const Tensor &X, const Tensor &W, const Tensor *B, Tensor *Y,
+        // attributes
+        const std::vector<int64_t> &pads, const std::vector<int64_t> &strides, const std::vector<int64_t> &dilations, int64_t group,
+        // X shapes
+        int64_t N, int64_t C, int64_t H, int64_t W_in,
+        // W shapes
+        int64_t M, int64_t kH, int64_t kW,
+        // Y shapes
+        int64_t H_out, int64_t W_out)
     {
-
-        if (kH != 3 || kW != 3)
-        {
-
-            return executeConv<T>(X, W, B, Y, pads, strides, dilations, group, N, C, H, W_in, M, kH, kW, H_out, W_out);
-        }
 
         const T *input_data = X.data<T>();
         const T *weight_data = W.data<T>();
@@ -245,20 +252,30 @@ namespace CPU_OP
         T *output_data = Y->data<T>();
         std::fill(output_data, output_data + (N * M * H_out * W_out), static_cast<T>(0));
 
+        // the W is (C x M/group x kH x kW)
+        // each kernel has size (kH x kW)
+        // thus, there are total of C x M/group kernels
+        // M * (C / group) number of transformed kernels
+        // each transformed kernel has size 4 x 4 = 16
         std::vector<T> transformed_kernels(M * (C / group) * 16);
-        for (size_t g = 0; g < static_cast<size_t>(group); ++g)
+
+        for (int64_t g = 0; g < group; ++g)
         {
-            for (size_t m = 0; m < M / group; ++m)
+            // M/group : number of output channels per group
+            for (int64_t m = 0; m < M / group; ++m)
             {
-                for (size_t c = 0; c < C / group; ++c)
+                // C/group : number of input channels per group
+                for (int64_t c = 0; c < C / group; ++c)
                 {
 
+                    // 3x3 kernel (fixed for Winograd)
                     T kernel[3][3];
-                    for (size_t kh = 0; kh < 3; ++kh)
+                    for (int64_t kh = 0; kh < 3; ++kh)
                     {
-                        for (size_t kw = 0; kw < 3; ++kw)
+                        for (int64_t kw = 0; kw < 3; ++kw)
                         {
-                            size_t weight_idx = (g * (M / group) + m) * (C / group * kH * kW) + c * (kH * kW) + kh * kW + kw;
+                            /// XXX: Make it simpler by using strides
+                            int64_t weight_idx = (g * (M / group) + m) * (C / group * kH * kW) + c * (kH * kW) + kh * kW + kw;
                             kernel[kh][kw] = weight_data[weight_idx];
                         }
                     }
@@ -266,10 +283,10 @@ namespace CPU_OP
                     T transformed_kernel[4][4];
                     winogradTransformKernel<T>(kernel, transformed_kernel);
 
-                    size_t kernel_idx = ((g * (M / group) + m) * (C / group) + c) * 16;
-                    for (size_t i = 0; i < 4; ++i)
+                    int64_t kernel_idx = ((g * (M / group) + m) * (C / group) + c) * 16;
+                    for (int64_t i = 0; i < 4; ++i)
                     {
-                        for (size_t j = 0; j < 4; ++j)
+                        for (int64_t j = 0; j < 4; ++j)
                         {
                             transformed_kernels[kernel_idx + i * 4 + j] = transformed_kernel[i][j];
                         }
@@ -389,141 +406,100 @@ namespace CPU_OP
 
     OperatorExecuteResult ConvOperatorImpl::execute(const std::vector<Tensor> &inputs, std::vector<Tensor *> &outputs, const std::unordered_map<std::string, Node::AttributeValue> &attributes)
     {
+        /// FIXME: use .at()
+        /// FIXME: Why don't we just use pointers for all tensos as there are cases where the tensor is actually not provided.
+
+        // input tensors
         const Tensor &X = inputs.at(0);
         const Tensor &W = inputs.at(1);
-
         bool has_bias = inputs.size() == 3;
         const Tensor *B = has_bias ? &inputs.at(2) : nullptr;
 
-        Tensor *Y = outputs[0];
+        // output tensor
+        Tensor *Y = outputs.at(0);
 
-        const std::vector<size_t> &X_dims = X.getDims();
-        const std::vector<size_t> &W_dims = W.getDims();
+        // get attributes
 
+        /// FIXME: substitute all size_t with int64_t
+        // currently, getDims() returns std::vector<size_t>
+        // so, we need to convert it to std::vector<int64_t>
+        const std::vector<size_t> &X_dims_size_t = X.getDims();
+        const std::vector<size_t> &W_dims_size_t = W.getDims();
+
+        std::vector<int64_t> X_dims(X_dims_size_t.begin(), X_dims_size_t.end());
+        std::vector<int64_t> W_dims(W_dims_size_t.begin(), W_dims_size_t.end());
+
+        /// FIXME: auto_pad is actually not used now (the code assumes it is NOTSET)
         std::string auto_pad = "NOTSET";
-        std::vector<size_t> dilations = {1, 1};
+        std::vector<int64_t> dilations = {1, 1};
+        /// FIXME: group other than 1 is not tested
         int64_t group = 1;
-        std::vector<size_t> kernel_shape = {static_cast<size_t>(W_dims[2]), static_cast<size_t>(W_dims[3])};
+        std::vector<int64_t> kernel_shape = {W_dims[2], W_dims[3]};
         std::vector<int64_t> pads = {0, 0, 0, 0};
-        std::vector<size_t> strides = {1, 1};
+        std::vector<int64_t> strides = {1, 1};
 
+        /// FIXME: move attributes error checking to elsewhere
         for (const auto &[key, value] : attributes)
         {
             if (key == "auto_pad")
                 auto_pad = std::get<std::string>(value);
+
             else if (key == "dilations")
             {
-
-                auto temp_dilations = std::get<std::vector<int64_t>>(value);
-                dilations.clear();
-                for (const auto &d : temp_dilations)
-                {
-                    if (d < 0)
-                        return OperatorExecuteResult::ATTRIBUTE_ERROR;
-                    dilations.push_back(static_cast<size_t>(d));
-                }
+                dilations = std::get<std::vector<int64_t>>(value);
             }
             else if (key == "group")
                 group = std::get<int64_t>(value);
             else if (key == "kernel_shape")
             {
-                auto temp_kernel = std::get<std::vector<int64_t>>(value);
-                kernel_shape.clear();
-                for (const auto &k : temp_kernel)
-                {
-                    if (k <= 0)
-                        return OperatorExecuteResult::ATTRIBUTE_ERROR;
-                    kernel_shape.push_back(static_cast<size_t>(k));
-                }
+                kernel_shape = std::get<std::vector<int64_t>>(value);
             }
             else if (key == "pads")
             {
                 pads = std::get<std::vector<int64_t>>(value);
-                if (pads.size() != 4)
-                    return OperatorExecuteResult::ATTRIBUTE_ERROR;
             }
             else if (key == "strides")
             {
-                auto temp_strides = std::get<std::vector<int64_t>>(value);
-                strides.clear();
-                for (const auto &s : temp_strides)
-                {
-                    if (s <= 0)
-                        return OperatorExecuteResult::ATTRIBUTE_ERROR;
-                    strides.push_back(static_cast<size_t>(s));
-                }
+                strides = std::get<std::vector<int64_t>>(value);
             }
         }
 
-        size_t N = X_dims[0];
-        size_t C = X_dims[1];
-        size_t H = X_dims[2];
-        size_t W_in = X_dims[3];
-        size_t M = W_dims[0];
-        size_t kH = kernel_shape[0];
-        size_t kW = kernel_shape[1];
+        int64_t N = X_dims[0];
+        int64_t C = X_dims[1];
+        int64_t H = X_dims[2];
+        int64_t W_in = X_dims[3];
 
-        if (group <= 0 || C % group != 0 || M % group != 0)
-        {
-            return OperatorExecuteResult::ATTRIBUTE_ERROR;
-        }
+        int64_t M = W_dims[0];
+        int64_t kH = kernel_shape[0];
+        int64_t kW = kernel_shape[1];
 
-        int64_t H_out_f = static_cast<int64_t>(std::floor((static_cast<double>(H) + pads[0] + pads[2] - (static_cast<int64_t>(kH) - 1) * static_cast<int64_t>(dilations[0]) - 1) / static_cast<double>(strides[0]) + 1));
-        int64_t W_out_f = static_cast<int64_t>(std::floor((static_cast<double>(W_in) + pads[1] + pads[3] - (static_cast<int64_t>(kW) - 1) * static_cast<int64_t>(dilations[1]) - 1) / static_cast<double>(strides[1]) + 1));
+        int64_t H_out = static_cast<int64_t>(
+            std::floor((H + pads[0] + pads[2] - ((kH - 1) * dilations[0] + 1)) / static_cast<double>(strides[0])) + 1);
+        int64_t W_out = static_cast<int64_t>(
+            std::floor((W_in + pads[1] + pads[3] - ((kW - 1) * dilations[1] + 1)) / static_cast<double>(strides[1])) + 1);
 
-        if (H_out_f <= 0 || W_out_f <= 0)
-        {
-            return OperatorExecuteResult::SHAPE_MISMATCH_ERROR;
-        }
-
-        size_t H_out = static_cast<size_t>(H_out_f);
-        size_t W_out = static_cast<size_t>(W_out_f);
-
-        std::vector<size_t> kernel_shape_size = kernel_shape;
-        std::vector<size_t> strides_size = strides;
-        std::vector<size_t> dilations_size = dilations;
-
-        bool use_winograd_flag = useWinograd(kernel_shape_size, strides_size, dilations_size, C, M, H, W_in);
+        bool use_winograd_flag = useWinograd(kernel_shape, strides, dilations, C, M, H, W_in);
 
         switch (X.getDataType())
         {
         case TensorDataType::FLOAT32:
             return use_winograd_flag ? executeWinogradConv<float>(
-                                           X, W, B, Y, pads, strides_size, dilations_size, group, N, C, H, W_in, M, kH, kW, H_out, W_out)
+                                           X, W, B, Y, pads, strides, dilations, group, N, C, H, W_in, M, kH, kW, H_out, W_out)
                                      : executeConv<float>(
-                                           X, W, B, Y, pads, strides_size, dilations_size, group, N, C, H, W_in, M, kH, kW, H_out, W_out);
+                                           X, W, B, Y, pads, strides, dilations, group, N, C, H, W_in, M, kH, kW, H_out, W_out);
 
         case TensorDataType::FLOAT64:
             return use_winograd_flag ? executeWinogradConv<double>(
-                                           X, W, B, Y, pads, strides_size, dilations_size, group, N, C, H, W_in, M, kH, kW, H_out, W_out)
+                                           X, W, B, Y, pads, strides, dilations, group, N, C, H, W_in, M, kH, kW, H_out, W_out)
                                      : executeConv<double>(
-                                           X, W, B, Y, pads, strides_size, dilations_size, group, N, C, H, W_in, M, kH, kW, H_out, W_out);
-
-        case TensorDataType::INT32:
-            return executeConv<int32_t>(
-                X, W, B, Y, pads, strides_size, dilations_size, group, N, C, H, W_in, M, kH, kW, H_out, W_out);
-
-        case TensorDataType::INT64:
-            return executeConv<int64_t>(
-                X, W, B, Y, pads, strides_size, dilations_size, group, N, C, H, W_in, M, kH, kW, H_out, W_out);
-
-        case TensorDataType::INT8:
-            return executeConv<int8_t>(
-                X, W, B, Y, pads, strides_size, dilations_size, group, N, C, H, W_in, M, kH, kW, H_out, W_out);
-
-        case TensorDataType::UINT8:
-            return executeConv<uint8_t>(
-                X, W, B, Y, pads, strides_size, dilations_size, group, N, C, H, W_in, M, kH, kW, H_out, W_out);
-
+                                           X, W, B, Y, pads, strides, dilations, group, N, C, H, W_in, M, kH, kW, H_out, W_out);
         case TensorDataType::FLOAT16:
             return use_winograd_flag ? executeWinogradConv<half_t>(
-                                           X, W, B, Y, pads, strides_size, dilations_size, group, N, C, H, W_in, M, kH, kW, H_out, W_out)
+                                           X, W, B, Y, pads, strides, dilations, group, N, C, H, W_in, M, kH, kW, H_out, W_out)
                                      : executeConv<half_t>(
-                                           X, W, B, Y, pads, strides_size, dilations_size, group, N, C, H, W_in, M, kH, kW, H_out, W_out);
-
+                                           X, W, B, Y, pads, strides, dilations, group, N, C, H, W_in, M, kH, kW, H_out, W_out);
         default:
             return OperatorExecuteResult::DATA_TYPE_ERROR;
         }
     }
-
 }
