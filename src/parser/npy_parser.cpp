@@ -64,6 +64,7 @@ Tensor NpyParser::load(const std::string &file_path)
         fread(tensor.data<uint8_t>(), sizeof(uint8_t), num_elements, file);
         break;
     }
+    // int4_t is currently not implemented for parsing
 
     // custom types
     case TensorDataType::FLOAT16:
