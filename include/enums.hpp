@@ -51,6 +51,8 @@ enum class OperatorType
     Resize,
     MaxPool,
 
+    MatMulNBits,
+
     Unknown
 };
 

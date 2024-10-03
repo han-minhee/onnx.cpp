@@ -55,4 +55,6 @@ RegisterOperatorRegistrar(Transpose)
 RegisterOperatorRegistrar(Resize)
 RegisterOperatorRegistrar(MaxPool)
 
+RegisterOperatorRegistrar(MatMulNBits)
+
 #undef RegisterOperatorRegistrar
