@@ -12,7 +12,7 @@ namespace CPU_OP
     {
         const float zero_point = 8.0f;
         size_t n_blocks_per_col = K / block_size;
-
+    
         for (size_t n = 0; n < N; ++n)
         {
             for (size_t k = 0; k < K; ++k)

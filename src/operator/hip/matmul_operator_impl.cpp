@@ -99,11 +99,6 @@ namespace HIP_OP
             return OperatorExecuteResult::SHAPE_MISMATCH_ERROR;
         }
 
-        // Reshape output tensor
-        std::vector<size_t> output_shape = {dim_A_row, dim_B_col};
-        Y->reshape(output_shape);
-        Y->setDataType(A.getDataType());
-
         // Allocate buffers
         const void *A_data = A.getDataPointer();
         const void *B_data = B.getDataPointer();
