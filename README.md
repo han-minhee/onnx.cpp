@@ -1,9 +1,5 @@
 # ONNX.cpp: A simple ONNX engine with portability in mind
 
-## HIP Implementation for AMD/NVIDIA GPUs
-- It supports GPU inference on AMD/NVIDIA GPUs through HIP. Currently working on operator implementations and optimizations.
-- For the time being, GPU support is being implemented using HIP, but the ultimate goal is to use SYCL
-
 ## Overview
 **The primary goal of the repo is to demonstrate how an ONNX model works and to provide a building block for a custom ONNX engine. This library is currently not recommended for production.** For now, maybe.
 
@@ -12,6 +8,16 @@ There are some DNN implementations built with specific models in mind. While the
 This library aims to be simpler while still leveraging the ONNX format, without requiring model-specific implementations. **Currently, this library supports only the operators for YOLOv8, but it's designed to be easily scalable by implementing the required operator classes.**
 
 Minimal dependency was also a consideration. The library uses protobuf to read the ONNX file, but it is used only for parsing the ONNX file and not in other logic. Aside from that, there is no external library dependency other than the standard libraries.
+
+### Features
+- [x] YOLOv8 example (Only the Operators for the model are currently implemented)
+- [x] GPU Version for AMD/NVIDIA GPUs using HIP
+- [x] FP16 Support
+- [x] int4 quantization support for MatMulNBits
+      
+### HIP Implementation for AMD/NVIDIA GPUs
+- It supports GPU inference on AMD/NVIDIA GPUs through HIP. Currently working on operator implementations and optimizations.
+- For the time being, GPU support is being implemented using HIP, but the ultimate goal is to use SYCL
 
 ## Implementation
 1. The library reads an ONNX file into a `Graph` containing `Node`s (with `NodeAttribute`s and corresponding `Operator`), with weights/bias/constants `Tensor`s initialized inside the `Session`.
@@ -73,14 +79,7 @@ int main()
 - And as usual, needs lots of refactoring.
 
 ## Future Work
-**There is no optimization at all**. I intend to leave it this way for now so that we can easily understand what each operator does.
-
-### Features
-- [x] YOLOv8 example (Only the Operators for the model are currently implemented)
-- [x] GPU Version for AMD/NVIDIA GPUs using HIP
-
-### Future Work
+- [ ] SYCL implementation for vendor agnostic accelerating
 - [ ] Support Phi-3 LLM
 - [ ] Optimizations and off-loading
-- [ ] SYCL implementation for vendor agnostic accelerating
 - [ ] General ONNX engine for various models
