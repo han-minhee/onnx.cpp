@@ -68,9 +68,7 @@ namespace CPU_OP
                     {
                         for (int64_t w_out = 0; w_out < W_out; ++w_out)
                         {
-                            int64_t output_idx = n * (M * H_out * W_out) +
-                                                 (g * (M / group) + m) * (H_out * W_out) +
-                                                 h_out * W_out + w_out;
+                            T sum = 0;
 
                             for (int64_t c = 0; c < C / group; ++c)
                             {
@@ -87,16 +85,24 @@ namespace CPU_OP
                                         {
                                             int64_t input_idx = n * (C * H * W_in) + (g * (C / group) + c) * (H * W_in) + h_in * W_in + w_in;
                                             int64_t weight_idx = (g * (M / group) + m) * (C / group * kH * kW) + c * (kH * kW) + kh * kW + kw;
-                                            output_data[output_idx] += input_data[input_idx] * weight_data[weight_idx];
+                                            sum += input_data[input_idx] * weight_data[weight_idx];
                                         }
                                     }
                                 }
                             }
 
+                            int64_t output_idx = n * (M * H_out * W_out) +
+                                                 (g * (M / group) + m) * (H_out * W_out) +
+                                                 h_out * W_out + w_out;
+                            
+                            output_data[output_idx] = sum;
+
                             if (bias_data)
                             {
                                 output_data[output_idx] += bias_data[g * (M / group) + m];
                             }
+
+
                         }
                     }
                 }

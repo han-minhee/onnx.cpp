@@ -9,7 +9,7 @@
 
 namespace HIP_OP
 {
-    // The HIP kernel for gather operation
+
     template <typename T>
     __global__ void gather_kernel(const T *__restrict__ input_data, const size_t *__restrict__ input_shape,
                                   const int64_t *__restrict__ indices_data, T *__restrict__ output_data,
@@ -31,7 +31,6 @@ namespace HIP_OP
         output_data[idx] = input_data[input_idx];
     }
 
-    // The executeGather function that prepares data and launches the kernel
     template <typename T>
     OperatorExecuteResult executeGather(const Tensor &input, const Tensor &indices, Tensor *output, int axis)
     {
@@ -43,7 +42,6 @@ namespace HIP_OP
         const void *indices_data = indices.getDataPointer();
         void *output_data = output->getDataPointer();
 
-        // Calculating inner, outer, and axis dimensions
         size_t inner_dim = 1;
         size_t outer_dim = 1;
         for (size_t i = axis + 1; i < input_shape.size(); ++i)
@@ -55,11 +53,9 @@ namespace HIP_OP
             outer_dim *= input_shape[i];
         }
 
-        // Prepare grid and block size
         dim3 gridSize((num_elements + BLOCK_SIZE - 1) / BLOCK_SIZE);
         dim3 blockSize(BLOCK_SIZE);
 
-        // Launch the kernel
         hipKernelLaunchCheck(hipLaunchKernelGGL(gather_kernel<T>, gridSize, blockSize, 0, 0,
                                                 static_cast<const T *>(input_data), input.d_getDims(),
                                                 static_cast<const int64_t *>(indices_data), static_cast<T *>(output_data),
@@ -70,7 +66,6 @@ namespace HIP_OP
         return OperatorExecuteResult::SUCCESS;
     }
 
-    // The execute function that handles different data types
     OperatorExecuteResult GatherOperatorImpl::execute(const std::vector<Tensor> &inputs, std::vector<Tensor *> &outputs,
                                                       const std::unordered_map<std::string, Node::AttributeValue> &attributes, Device *device)
     {
@@ -91,23 +86,24 @@ namespace HIP_OP
 
         Tensor *output = outputs[0];
         TensorDataType data_type = input.getDataType();
-        switch(data_type){
-            case TensorDataType::FLOAT32:
-                return executeGather<float>(input, indices, output, axis);
-            case TensorDataType::FLOAT64:
-                return executeGather<double>(input, indices, output, axis);
-            case TensorDataType::INT32:
-                return executeGather<int32_t>(input, indices, output, axis);
-            case TensorDataType::INT64:
-                return executeGather<int64_t>(input, indices, output, axis);
-            case TensorDataType::INT8:
-                return executeGather<int8_t>(input, indices, output, axis);
-            case TensorDataType::UINT8:
-                return executeGather<uint8_t>(input, indices, output, axis);
-            case TensorDataType::FLOAT16:
-                return executeGather<half_t>(input, indices, output, axis);
-            default:
-                return OperatorExecuteResult::NOT_IMPLEMENTED;
+        switch (data_type)
+        {
+        case TensorDataType::FLOAT32:
+            return executeGather<float>(input, indices, output, axis);
+        case TensorDataType::FLOAT64:
+            return executeGather<double>(input, indices, output, axis);
+        case TensorDataType::INT32:
+            return executeGather<int32_t>(input, indices, output, axis);
+        case TensorDataType::INT64:
+            return executeGather<int64_t>(input, indices, output, axis);
+        case TensorDataType::INT8:
+            return executeGather<int8_t>(input, indices, output, axis);
+        case TensorDataType::UINT8:
+            return executeGather<uint8_t>(input, indices, output, axis);
+        case TensorDataType::FLOAT16:
+            return executeGather<half_t>(input, indices, output, axis);
+        default:
+            return OperatorExecuteResult::NOT_IMPLEMENTED;
         }
 
         return OperatorExecuteResult::SUCCESS;

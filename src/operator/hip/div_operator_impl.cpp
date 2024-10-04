@@ -7,7 +7,6 @@
 
 #include "utils.hpp"
 
-#define MAX_DIMS 8
 #define BLOCK_SIZE 256
 
 namespace HIP_OP

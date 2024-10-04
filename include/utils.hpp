@@ -6,9 +6,9 @@
 #ifdef USE_HIP
 #include <hip/hip_runtime.h>
 
-#define hipErrorCheck(ans)                  \
-      hipAssert((ans), __FILE__, __LINE__); 
-      
+#define hipErrorCheck(ans) \
+   hipAssert((ans), __FILE__, __LINE__);
+
 inline void hipAssert(hipError_t code, const char *file, int line, bool abort = true)
 {
    if (code != hipSuccess)
@@ -19,14 +19,15 @@ inline void hipAssert(hipError_t code, const char *file, int line, bool abort = 
    }
 }
 
-// launch kernel and check for errors
-// using hipErrorCheck(hipGetLastError());
 #define hipKernelLaunchCheck(KernelCall)     \
    {                                         \
       KernelCall;                            \
       hipErrorCheck(hipDeviceSynchronize()); \
       hipErrorCheck(hipGetLastError());      \
    }
+
+#define CeilDiv(a, b) ((a + b - 1) / b)
+#define MAX_DIMS 8
 
 #endif // USE_HIP
 

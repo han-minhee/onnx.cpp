@@ -4,8 +4,13 @@
 #include <vector>
 #include <iostream>
 
+#define BLOCK_SIZE_X 16
+#define BLOCK_SIZE_Y 16
+
 namespace HIP_OP
 {
+    /// FIXME: Fuse dequantize and matmul into a single kernel
+
     template <typename T>
     __global__ void dequantize_4bit_kernel(const uint8_t *B_quant, const float *scales, T *B_dequant,
                                            size_t N, size_t K, size_t block_size)
@@ -23,13 +28,14 @@ namespace HIP_OP
             size_t block = k / block_size;
             size_t block_offset = k % block_size;
             size_t quant_idx = (n * n_blocks_per_col + block) * (block_size / 2) + block_offset / 2;
-            if (quant_idx < (N * K / 2)) // Add this check
-            {
-                uint8_t quant_value = B_quant[quant_idx];
-                uint8_t bit_value = (block_offset % 2 == 0) ? (quant_value & 0x0F) : ((quant_value >> 4) & 0x0F);
-                float scale = scales[n * n_blocks_per_col + block];
-                B_dequant[n * K + k] = static_cast<T>((bit_value * scale) - (scale * zero_point));
-            }
+
+            if (quant_idx >= (N * K / 2))
+                return;
+
+            uint8_t quant_value = B_quant[quant_idx];
+            uint8_t bit_value = (block_offset % 2 == 0) ? (quant_value & 0x0F) : ((quant_value >> 4) & 0x0F);
+            float scale = scales[n * n_blocks_per_col + block];
+            B_dequant[n * K + k] = static_cast<T>((bit_value - zero_point) * scale);
         }
     }
 
@@ -46,7 +52,6 @@ namespace HIP_OP
             T sum = 0;
             for (size_t k = 0; k < K; ++k)
             {
-                // Corrected indexing here
                 sum += A[b * M * K + row * K + k] * B_dequant[col * K + k];
             }
             C[b * M * N + row * N + col] = sum;
@@ -85,11 +90,11 @@ namespace HIP_OP
         void *d_B_dequant;
         hipErrorCheck(hipMalloc(&d_B_dequant, N * K * sizeof(float)));
 
-        dim3 deq_block_size(16, 16);
-        dim3 deq_grid_size((N + 15) / 16, (K + 15) / 16);
+        dim3 deq_block_size(BLOCK_SIZE_X, BLOCK_SIZE_Y);
+        dim3 deq_grid_size(CeilDiv(N, BLOCK_SIZE_X), CeilDiv(K, BLOCK_SIZE_Y));
 
-        dim3 matmul_block_size(16, 16);
-        dim3 matmul_grid_size((N + 15) / 16, (M + 15) / 16, batch_size);
+        dim3 matmul_block_size(BLOCK_SIZE_X, BLOCK_SIZE_Y);
+        dim3 matmul_grid_size(CeilDiv(N, BLOCK_SIZE_X), CeilDiv(M, BLOCK_SIZE_Y), batch_size);
 
         switch (A.getDataType())
         {

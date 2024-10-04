@@ -155,7 +155,7 @@ namespace HIP_OP
         hipErrorCheck(hipMemcpy(d_output_shape, output_shape.data(), sizeof(size_t) * input_rank, hipMemcpyHostToDevice));
 
         // Prepare grid and block size
-        dim3 gridSize((num_elements + BLOCK_SIZE - 1) / BLOCK_SIZE);
+        dim3 gridSize(CeilDiv(num_elements, BLOCK_SIZE));
         dim3 blockSize(BLOCK_SIZE);
 
         // Launch the slicing kernel

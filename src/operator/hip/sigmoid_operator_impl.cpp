@@ -48,7 +48,7 @@ namespace HIP_OP
         const void *input_data = input.getDataPointer();
         void *output_data = output->getDataPointer();
 
-        dim3 gridSize((num_elements + BLOCK_SIZE - 1) / BLOCK_SIZE);
+        dim3 gridSize(CeilDiv(num_elements, BLOCK_SIZE));
         dim3 blockSize(BLOCK_SIZE);
 
         switch (dtype)

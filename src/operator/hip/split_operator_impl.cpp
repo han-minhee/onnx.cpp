@@ -15,7 +15,6 @@ namespace HIP_OP
     {
         size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
 
-        // Find which split this thread should work on
         size_t offset = 0;
         for (size_t i = 0; i < num_splits; ++i)
         {
@@ -23,15 +22,13 @@ namespace HIP_OP
 
             if (idx < outer_dim * split_size * inner_dim)
             {
-                // Calculate the 3D coordinates (outer, split, inner)
+
                 size_t outer = idx / (split_size * inner_dim);
                 size_t split_idx = (idx / inner_dim) % split_size;
                 size_t inner = idx % inner_dim;
 
-                // Find the corresponding position in the input tensor
                 size_t input_index = outer * input_axis_dim * inner_dim + (offset + split_idx) * inner_dim + inner;
 
-                // Set the value in the corresponding output tensor
                 output_data[i][idx] = input_data[input_index];
                 break;
             }
@@ -41,7 +38,6 @@ namespace HIP_OP
         }
     }
 
-    /// FIXME: implement proper executeResult return
     OperatorExecuteResult SplitOperatorImpl::execute(const std::vector<Tensor> &inputs, std::vector<Tensor *> &outputs,
                                                      const std::unordered_map<std::string, Node::AttributeValue> &attributes, Device *device)
     {
@@ -95,11 +91,9 @@ namespace HIP_OP
 
         const void *input_data = input.getDataPointer();
 
-        // Allocate device memory for output pointers
         void **d_output_data;
         hipErrorCheck(hipMalloc(&d_output_data, outputs.size() * sizeof(void *)));
 
-        // Transfer output pointers to device
         std::vector<void *> h_output_data(outputs.size());
         for (size_t i = 0; i < outputs.size(); ++i)
         {
@@ -107,21 +101,19 @@ namespace HIP_OP
         }
         hipErrorCheck(hipMemcpy(d_output_data, h_output_data.data(), outputs.size() * sizeof(void *), hipMemcpyHostToDevice));
 
-        // Allocate device memory for output sizes
         size_t *d_split_sizes;
         hipErrorCheck(hipMalloc(&d_split_sizes, split_sizes.size() * sizeof(size_t)));
         hipErrorCheck(hipMemcpy(d_split_sizes, split_sizes.data(), split_sizes.size() * sizeof(size_t), hipMemcpyHostToDevice));
 
-        size_t total_elements = 0;
+        size_t num_elements = 0;
         for (const auto &size : split_sizes)
         {
-            total_elements += size * outer_dim * inner_dim;
+            num_elements += size * outer_dim * inner_dim;
         }
 
-        dim3 gridSize((total_elements + BLOCK_SIZE - 1) / BLOCK_SIZE);
+        dim3 gridSize(CeilDiv(num_elements, BLOCK_SIZE));
         dim3 blockSize(BLOCK_SIZE);
 
-        // Execute kernel based on the data type
         switch (input.getDataType())
         {
         case TensorDataType::FLOAT32:

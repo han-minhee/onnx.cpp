@@ -7,11 +7,18 @@
 
 #include "utils.hpp"
 
-#define MAX_DIMS 8
 #define BLOCK_SIZE 256
-
 namespace HIP_OP
 {
+    template <typename T>
+    __global__ void add_no_broadcast_kernel(const T *__restrict__ A_data, const T *__restrict__ B_data, T *__restrict__ C_data, size_t num_elements)
+    {
+        size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
+        if (idx >= num_elements)
+            return;
+
+        C_data[idx] = A_data[idx] + B_data[idx];
+    }
 
     template <typename T>
     __global__ void add_kernel(const T *__restrict__ A_data, const size_t *__restrict__ A_dims, const size_t *__restrict__ A_strides,
@@ -25,6 +32,7 @@ namespace HIP_OP
 
         size_t indices[MAX_DIMS];
         size_t tmp = idx;
+
         for (int i = C_ndims - 1; i >= 0; --i)
         {
             indices[i] = tmp % C_dims[i];
@@ -42,6 +50,7 @@ namespace HIP_OP
 
         C_data[idx] = A_data[A_idx] + B_data[B_idx];
     }
+
     OperatorExecuteResult AddOperatorImpl::execute(const std::vector<Tensor> &inputs, std::vector<Tensor *> &outputs,
                                                    const std::unordered_map<std::string, Node::AttributeValue> &attributes, Device *device)
     {
@@ -76,7 +85,7 @@ namespace HIP_OP
         size_t *d_B_strides = B.d_getStrides();
         size_t *d_C_strides = C->d_getStrides();
 
-        dim3 gridSize((num_elements_C + BLOCK_SIZE - 1) / BLOCK_SIZE);
+        dim3 gridSize(CeilDiv(num_elements_C, BLOCK_SIZE));
         dim3 blockSize(BLOCK_SIZE);
 
         switch (dtype)
