@@ -4,7 +4,7 @@ void Buffer::copyFrom(const Buffer *src)
 {
     if (this->getSizeInBytes() != src->getSizeInBytes())
     {
-        throw std::runtime_error("Buffer size mismatch.");
+        throw std::runtime_error("Buffer size mismatch in copyFrom.");
     }
 
     switch (this->getDeviceType())
@@ -72,7 +72,7 @@ void CpuBuffer::setData(const std::vector<T> &data)
     if (sizeof(T) * data.size() != this->getSizeInBytes())
     {
         // print the size of the data and the size of the buffer
-        std::cerr << "Buffer size mismatch." << std::endl;
+        std::cerr << "Buffer size mismatch in setData." << std::endl;
         std::cerr << "Data size: " << sizeof(T) * data.size() << std::endl;
         std::cerr << "Buffer size: " << this->getSizeInBytes() << std::endl;
     }

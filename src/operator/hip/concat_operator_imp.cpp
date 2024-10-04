@@ -8,6 +8,8 @@
 
 #include "utils.hpp"
 
+#define BLOCK_SIZE 256
+
 namespace HIP_OP
 {
     template <typename T>
@@ -19,17 +21,14 @@ namespace HIP_OP
         if (idx >= num_input_elements)
             return;
 
-        // Compute indices
         size_t axis_size_input_inner = axis_size_input * inner_size;
         size_t outer_index = idx / axis_size_input_inner;
         size_t tmp = idx % axis_size_input_inner;
         size_t axis_index = tmp / inner_size;
         size_t inner_index = tmp % inner_size;
 
-        // Compute input index
         size_t input_idx = idx;
 
-        // Compute output index
         size_t axis_size_output_inner = axis_size_output * inner_size;
         size_t output_idx = outer_index * axis_size_output_inner + (axis_offset + axis_index) * inner_size + inner_index;
 
@@ -45,21 +44,18 @@ namespace HIP_OP
             axis += static_cast<int64_t>(rank);
         }
 
-        // Compute outer_size (product of dimensions before axis)
         size_t outer_size = 1;
         for (size_t i = 0; i < static_cast<size_t>(axis); ++i)
         {
             outer_size *= output->getDims()[i];
         }
 
-        // Compute inner_size (product of dimensions after axis)
         size_t inner_size = 1;
         for (size_t i = static_cast<size_t>(axis) + 1; i < rank; ++i)
         {
             inner_size *= output->getDims()[i];
         }
 
-        // The total size along axis in output tensor
         size_t axis_size_output = output->getDims()[axis];
 
         T *output_data = static_cast<T *>(output->getDataPointer());
@@ -78,27 +74,16 @@ namespace HIP_OP
             {
                 return OperatorExecuteResult::INPUT_TENSOR_ERROR;
             }
-
-            // Get the size along the concatenation axis for this input tensor
             size_t axis_size_input = input.getDims()[axis];
-
-            // Compute number of elements in input tensor
             size_t num_input_elements = input.getNumElements();
 
-            int threadsPerBlock = 256;
-            int blocksPerGrid = (num_input_elements + threadsPerBlock - 1) / threadsPerBlock;
+            dim3 gridSize(CeilDiv(num_input_elements, BLOCK_SIZE));
+            dim3 blockSize(BLOCK_SIZE);
 
-            hipLaunchKernelGGL(concat_kernel<T>, dim3(blocksPerGrid), dim3(threadsPerBlock), 0, 0,
-                               input_data, output_data,
-                               outer_size, axis_size_input, axis_size_output, inner_size,
-                               axis_offset, num_input_elements);
-
-            /// FIXME: Implement it in the macro
-            if (hipGetLastError() != hipSuccess)
-            {
-                return OperatorExecuteResult::HIP_ERROR;
-            }
-
+            hipKernelLaunchCheck(hipLaunchKernelGGL(concat_kernel<T>, gridSize, blockSize, 0, 0,
+                                                    input_data, output_data,
+                                                    outer_size, axis_size_input, axis_size_output, inner_size,
+                                                    axis_offset, num_input_elements));
             axis_offset += axis_size_input;
         }
 
@@ -114,20 +99,12 @@ namespace HIP_OP
         int64_t axis = std::get<int64_t>(attributes.at("axis"));
         size_t rank = inputs[0].getNDim();
 
-        // Adjust negative axis
         if (axis < 0)
         {
             axis += static_cast<int64_t>(rank);
         }
 
-        // Ensure that the output tensor is allocated
         Tensor *output = outputs[0];
-        size_t output_num_elements = output->getNumElements();
-        if (!output->getBuffer() || output->getNumElements() != output_num_elements)
-        {
-            output->allocateBuffer(output->getDataType(), output_num_elements);
-        }
-
         TensorDataType data_type = inputs[0].getDataType();
 
         switch (data_type)

@@ -7,7 +7,6 @@
 
 #include "utils.hpp"
 
-#define MAX_DIMS 8
 #define BLOCK_SIZE 256
 
 namespace HIP_OP
@@ -76,7 +75,7 @@ namespace HIP_OP
         size_t *d_B_strides = B.d_getStrides();
         size_t *d_C_strides = C->d_getStrides();
 
-        dim3 gridSize((num_elements_C + BLOCK_SIZE - 1) / BLOCK_SIZE);
+        dim3 gridSize(CeilDiv(num_elements_C, BLOCK_SIZE));
         dim3 blockSize(BLOCK_SIZE);
 
         switch (dtype)

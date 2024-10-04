@@ -7,7 +7,6 @@
 
 #include "utils.hpp"
 
-#define MAX_DIMS 8
 #define BLOCK_SIZE 256
 
 namespace HIP_OP
@@ -51,8 +50,8 @@ namespace HIP_OP
                     in_w >= 0 && in_w < input_dims[input_ndims - 1])
                 {
                     size_t input_idx = 0;
-                    input_idx += output_indices[0] * input_strides[0]; // Batch dimension
-                    input_idx += output_indices[1] * input_strides[1]; // Channel dimension
+                    input_idx += output_indices[0] * input_strides[0];
+                    input_idx += output_indices[1] * input_strides[1];
                     input_idx += in_h * input_strides[input_ndims - 2];
                     input_idx += in_w * input_strides[input_ndims - 1];
 
@@ -70,12 +69,11 @@ namespace HIP_OP
         const Tensor &input = inputs[0];
         Tensor *output = outputs[0];
 
-        // Extract attributes with default values
         std::string auto_pad = "NOTSET";
         int64_t ceil_mode = 0;
         std::vector<int64_t> dilations = {1, 1};
         std::vector<int64_t> kernel_shape;
-        std::vector<int64_t> pads = {0, 0, 0, 0}; // Assuming 2D pooling (top, left, bottom, right)
+        std::vector<int64_t> pads = {0, 0, 0, 0};
         int64_t storage_order = 0;
         std::vector<int64_t> strides = {1, 1};
 
@@ -116,7 +114,6 @@ namespace HIP_OP
         size_t *d_input_strides = input.d_getStrides();
         size_t *d_output_strides = output->d_getStrides();
 
-        // Extract kernel, stride, pad, and dilation values
         int kernel_h = static_cast<int>(kernel_shape[0]);
         int kernel_w = static_cast<int>(kernel_shape[1]);
         int stride_h = static_cast<int>(strides[0]);
@@ -126,7 +123,7 @@ namespace HIP_OP
         int dilation_h = static_cast<int>(dilations[0]);
         int dilation_w = static_cast<int>(dilations[1]);
 
-        dim3 gridSize((num_elements_output + BLOCK_SIZE - 1) / BLOCK_SIZE);
+        dim3 gridSize(CeilDiv(num_elements_output, BLOCK_SIZE));
         dim3 blockSize(BLOCK_SIZE);
 
         switch (dtype)
@@ -159,7 +156,7 @@ namespace HIP_OP
                                                     num_elements_output, input_ndims, output_ndims,
                                                     kernel_h, kernel_w, stride_h, stride_w, pad_h, pad_w, dilation_h, dilation_w, ceil_mode));
             break;
-        
+
         case TensorDataType::FLOAT16:
             hipKernelLaunchCheck(hipLaunchKernelGGL(maxpool_kernel<half_t>, gridSize, blockSize, 0, 0,
                                                     static_cast<const half_t *>(input_data), d_input_dims, d_input_strides,
@@ -167,7 +164,7 @@ namespace HIP_OP
                                                     num_elements_output, input_ndims, output_ndims,
                                                     kernel_h, kernel_w, stride_h, stride_w, pad_h, pad_w, dilation_h, dilation_w, ceil_mode));
             break;
-        
+
         default:
             return OperatorExecuteResult::DATA_TYPE_ERROR;
         }

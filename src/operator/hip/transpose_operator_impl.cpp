@@ -7,31 +7,29 @@
 #include "types/half_t.hpp"
 
 #define BLOCK_SIZE 256
-#define MAX_DIMS 8
 
 namespace HIP_OP
 {
 
-    // Template for general types
     template <typename T>
-    __global__ void transpose_kernel(const T *__restrict__ input_data, const size_t *__restrict__ input_dims,
-                                     const size_t *__restrict__ input_strides, T *__restrict__ output_data,
-                                     const size_t *__restrict__ output_strides, const size_t *__restrict__ perm,
-                                     size_t num_elements, size_t rank)
+    __global__ void transpose_kernel(const T *__restrict__ input_data, const int64_t *__restrict__ input_dims,
+                                     const int64_t *__restrict__ input_strides, T *__restrict__ output_data,
+                                     const int64_t *__restrict__ output_strides, const int64_t *__restrict__ perm,
+                                     int64_t num_elements, int64_t rank)
     {
-        size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
+        int64_t idx = blockIdx.x * blockDim.x + threadIdx.x;
         if (idx >= num_elements)
             return;
 
-        size_t remaining = idx;
-        size_t input_indices[MAX_DIMS];
+        int64_t remaining = idx;
+        int64_t input_indices[MAX_DIMS];
         for (int i = rank - 1; i >= 0; --i)
         {
             input_indices[i] = remaining % input_dims[i];
             remaining /= input_dims[i];
         }
 
-        size_t output_linear_idx = 0;
+        int64_t output_linear_idx = 0;
         for (int i = 0; i < rank; ++i)
         {
             output_linear_idx += input_indices[perm[i]] * output_strides[i];
@@ -40,26 +38,26 @@ namespace HIP_OP
         output_data[output_linear_idx] = input_data[idx];
     }
 
-    // Template for general executeTranspose
     template <typename T>
-    OperatorExecuteResult executeTranspose(const Tensor &input_tensor, Tensor *output_tensor, const std::vector<size_t> &perm, size_t num_elements, size_t rank)
+    OperatorExecuteResult executeTranspose(const Tensor &input_tensor, Tensor *output_tensor, const std::vector<int64_t> &perm, int64_t num_elements, int64_t rank)
     {
         const T *input_data = input_tensor.data<T>();
         T *output_data = output_tensor->data<T>();
 
-        // Allocate memory for permutation on the device
-        size_t *d_perm;
-        hipErrorCheck(hipMalloc(&d_perm, rank * sizeof(size_t)));
-        hipErrorCheck(hipMemcpy(d_perm, perm.data(), rank * sizeof(size_t), hipMemcpyHostToDevice));
+        int64_t *d_perm;
+        hipErrorCheck(hipMalloc(&d_perm, rank * sizeof(int64_t)));
+        hipErrorCheck(hipMemcpy(d_perm, perm.data(), rank * sizeof(int64_t), hipMemcpyHostToDevice));
 
-        dim3 gridSize((num_elements + BLOCK_SIZE - 1) / BLOCK_SIZE);
+        dim3 gridSize(CeilDiv(num_elements, BLOCK_SIZE));
         dim3 blockSize(BLOCK_SIZE);
 
-        // Launch the general templated kernel
         hipKernelLaunchCheck(hipLaunchKernelGGL(transpose_kernel<T>, gridSize, blockSize, 0, 0,
-                                                input_data, input_tensor.d_getDims(), input_tensor.d_getStrides(),
-                                                output_data, output_tensor->d_getStrides(), d_perm,
-                                                num_elements, rank));
+                                                input_data,
+                                                reinterpret_cast<const int64_t *>(input_tensor.d_getDims()),
+                                                reinterpret_cast<const int64_t *>(input_tensor.d_getStrides()),
+                                                output_data,
+                                                reinterpret_cast<const int64_t *>(output_tensor->d_getStrides()),
+                                                d_perm, num_elements, rank));
 
         hipErrorCheck(hipFree(d_perm));
 
@@ -76,17 +74,16 @@ namespace HIP_OP
         const auto &input_dims = input_tensor.getDims();
         const auto &output_dims = output_tensor->getDims();
 
-        size_t rank = input_dims.size();
-        size_t num_elements = input_tensor.getNumElements();
+        int64_t rank = input_dims.size();
+        int64_t num_elements = input_tensor.getNumElements();
 
-        std::vector<size_t> perm(rank);
+        std::vector<int64_t> perm(rank);
         if (attributes.count("perm"))
         {
             const auto &perm_attr = std::get<std::vector<int64_t>>(attributes.at("perm"));
             if (perm_attr.size() != rank)
                 return OperatorExecuteResult::ATTRIBUTE_ERROR;
-            std::transform(perm_attr.begin(), perm_attr.end(), perm.begin(), [](int64_t val)
-                           { return static_cast<size_t>(val); });
+            std::copy(perm_attr.begin(), perm_attr.end(), perm.begin());
         }
         else
         {

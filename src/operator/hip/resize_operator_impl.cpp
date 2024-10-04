@@ -9,7 +9,6 @@
 #include <numeric>
 
 #define BLOCK_SIZE 256
-#define MAX_DIMS 8
 
 namespace HIP_OP
 {
@@ -17,28 +16,28 @@ namespace HIP_OP
     __device__ float compute_x_original_device(float x_resized, float scale, const int coordinate_transformation_mode,
                                                size_t input_size, size_t output_size)
     {
-        if (coordinate_transformation_mode == 0 || coordinate_transformation_mode == 1) // "half_pixel" or "pytorch_half_pixel"
+        if (coordinate_transformation_mode == 0 || coordinate_transformation_mode == 1)
         {
             return (output_size > 1) ? (x_resized + 0.5f) / scale - 0.5f : 0;
         }
-        else if (coordinate_transformation_mode == 2) // "asymmetric"
+        else if (coordinate_transformation_mode == 2)
         {
             return x_resized / scale;
         }
-        else if (coordinate_transformation_mode == 3) // "align_corners"
+        else if (coordinate_transformation_mode == 3)
         {
             return (output_size == 1) ? 0 : x_resized * (input_size - 1) / (output_size - 1);
         }
-        return (x_resized + 0.5f) / scale - 0.5f; // Default behavior
+        return (x_resized + 0.5f) / scale - 0.5f;
     }
 
     template <typename T>
     __device__ size_t compute_x_input_device(float x_original, const int nearest_mode, size_t input_size)
     {
-        float x_nearest = (nearest_mode == 0)   ? floor(x_original + 0.5f) // "round_prefer_floor"
-                          : (nearest_mode == 1) ? ceil(x_original - 0.5f)  // "round_prefer_ceil"
-                          : (nearest_mode == 2) ? floor(x_original)        // "floor"
-                                                : ceil(x_original);        // default ceil
+        float x_nearest = (nearest_mode == 0)   ? floor(x_original + 0.5f)
+                          : (nearest_mode == 1) ? ceil(x_original - 0.5f)
+                          : (nearest_mode == 2) ? floor(x_original)
+                                                : ceil(x_original);
 
         return static_cast<size_t>(max(0.0f, min(x_nearest, static_cast<float>(input_size - 1))));
     }
@@ -124,7 +123,6 @@ namespace HIP_OP
         size_t num_output_elements = output_tensor->getNumElements();
         size_t num_dims = output_shape.size();
 
-        // Copy data to device
         size_t *d_input_shape = input_tensor.d_getDims();
         size_t *d_output_shape = output_tensor->d_getDims();
         size_t *d_input_strides = input_tensor.d_getStrides();
@@ -137,18 +135,17 @@ namespace HIP_OP
             hipErrorCheck(hipMemcpy(d_scales, scales.data(), scales.size() * sizeof(float), hipMemcpyHostToDevice));
         }
 
-        // Convert string options to integers for use in the device
         int coordinate_transformation_mode_int = (coordinate_transformation_mode == "half_pixel")           ? 0
                                                  : (coordinate_transformation_mode == "pytorch_half_pixel") ? 1
                                                  : (coordinate_transformation_mode == "asymmetric")         ? 2
-                                                                                                            : 3; // align_corners or default
+                                                                                                            : 3;
 
         int nearest_mode_int = (nearest_mode == "round_prefer_floor")  ? 0
                                : (nearest_mode == "round_prefer_ceil") ? 1
                                : (nearest_mode == "floor")             ? 2
-                                                                       : 3; // ceil
+                                                                       : 3;
 
-        dim3 gridSize((num_output_elements + BLOCK_SIZE - 1) / BLOCK_SIZE);
+        dim3 gridSize(CeilDiv(num_output_elements, BLOCK_SIZE));
         dim3 blockSize(BLOCK_SIZE);
 
         switch (input_tensor.getDataType())

@@ -13,27 +13,25 @@ namespace HIP_OP
     __global__ void matmul_kernel(const T *__restrict__ A, const T *__restrict__ B, T *__restrict__ C,
                                   size_t dim_A_row, size_t dim_A_col, size_t dim_B_col)
     {
-        // Shared memory tiles for A and B
+
         __shared__ T tile_A[TILE_SIZE][TILE_SIZE];
         __shared__ T tile_B[TILE_SIZE][TILE_SIZE];
 
-        // Row and column index for the output matrix
         size_t row = blockIdx.y * TILE_SIZE + threadIdx.y;
         size_t col = blockIdx.x * TILE_SIZE + threadIdx.x;
 
         T sum = 0;
 
-        // Loop over all the tiles needed to compute the result
         for (size_t t = 0; t < (dim_A_col + TILE_SIZE - 1) / TILE_SIZE; ++t)
         {
-            // Load data into shared memory
+
             if (row < dim_A_row && t * TILE_SIZE + threadIdx.x < dim_A_col)
             {
                 tile_A[threadIdx.y][threadIdx.x] = A[row * dim_A_col + t * TILE_SIZE + threadIdx.x];
             }
             else
             {
-                tile_A[threadIdx.y][threadIdx.x] = 0; // out of bounds
+                tile_A[threadIdx.y][threadIdx.x] = 0;
             }
 
             if (col < dim_B_col && t * TILE_SIZE + threadIdx.y < dim_A_col)
@@ -42,21 +40,19 @@ namespace HIP_OP
             }
             else
             {
-                tile_B[threadIdx.y][threadIdx.x] = 0; // out of bounds
+                tile_B[threadIdx.y][threadIdx.x] = 0;
             }
 
-            __syncthreads(); // Synchronize to ensure all threads have loaded data
+            __syncthreads();
 
-            // Perform multiplication for this tile
             for (size_t k = 0; k < TILE_SIZE; ++k)
             {
                 sum += tile_A[threadIdx.y][k] * tile_B[k][threadIdx.x];
             }
 
-            __syncthreads(); // Synchronize before loading the next tile
+            __syncthreads();
         }
 
-        // Write the result to the output matrix
         if (row < dim_A_row && col < dim_B_col)
         {
             C[row * dim_B_col + col] = sum;
@@ -67,49 +63,24 @@ namespace HIP_OP
                                                       std::vector<Tensor *> &outputs,
                                                       const std::unordered_map<std::string, Node::AttributeValue> &attributes, Device *device)
     {
-        if (inputs.size() != 2)
-        {
-            return OperatorExecuteResult::INPUT_TENSOR_ERROR;
-        }
-
-        if (outputs.size() != 1 || outputs[0] == nullptr)
-        {
-            return OperatorExecuteResult::OUTPUT_TENSOR_ERROR;
-        }
-
         const Tensor &A = inputs[0];
         const Tensor &B = inputs[1];
         Tensor *Y = outputs[0];
 
         const std::vector<size_t> &shape_A = A.getDims();
         const std::vector<size_t> &shape_B = B.getDims();
-
-        if (shape_A.size() != 2 || shape_B.size() != 2)
-        {
-            return OperatorExecuteResult::UNSUPPORTED_OPERATION;
-        }
-
         size_t dim_A_row = shape_A[0];
         size_t dim_A_col = shape_A[1];
         size_t dim_B_row = shape_B[0];
         size_t dim_B_col = shape_B[1];
 
-        if (dim_A_col != dim_B_row)
-        {
-            return OperatorExecuteResult::SHAPE_MISMATCH_ERROR;
-        }
-
-        // Allocate buffers
         const void *A_data = A.getDataPointer();
         const void *B_data = B.getDataPointer();
         void *Y_data = Y->getDataPointer();
 
-        // Kernel launch configuration
         dim3 blockSize(TILE_SIZE, TILE_SIZE);
-        dim3 gridSize((dim_B_col + TILE_SIZE - 1) / TILE_SIZE, (dim_A_row + TILE_SIZE - 1) / TILE_SIZE);
+        dim3 gridSize(CeilDiv(dim_B_col, TILE_SIZE), CeilDiv(dim_A_row, TILE_SIZE));
 
-        // Launch the kernel based on the data type
-        // shared memory size doesn't have to be given explicitly if the size is fixed
         switch (A.getDataType())
         {
         case TensorDataType::FLOAT32:
@@ -143,7 +114,6 @@ namespace HIP_OP
                                                     static_cast<uint8_t *>(Y_data), dim_A_row, dim_A_col, dim_B_col));
             break;
 
-        /// FIXME: When using shared memory with half_t, it throws an error dealing with the half_t class
         case TensorDataType::FLOAT16:
             hipKernelLaunchCheck(hipLaunchKernelGGL(matmul_kernel<__half>, gridSize, blockSize, 0, 0,
                                                     static_cast<const __half *>(A_data), static_cast<const __half *>(B_data),
@@ -153,7 +123,6 @@ namespace HIP_OP
             return OperatorExecuteResult::DATA_TYPE_ERROR;
         }
 
-        // Synchronize the device to wait for the kernel to finish
         hipErrorCheck(hipDeviceSynchronize());
 
         return OperatorExecuteResult::SUCCESS;

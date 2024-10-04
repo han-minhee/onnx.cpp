@@ -92,8 +92,7 @@ namespace HIP_OP
             return OperatorExecuteResult::MEMORY_ALLOCATION_ERROR;
         }
 
-        // Launch the HIP kernel for copying data
-        dim3 gridSize((input_num_elements + BLOCK_SIZE - 1) / BLOCK_SIZE);
+        dim3 gridSize(CeilDiv(input_num_elements, BLOCK_SIZE));
         dim3 blockSize(BLOCK_SIZE);
 
         hipKernelLaunchCheck(hipLaunchKernelGGL(reshape_copy_kernel<T>, gridSize, blockSize, 0, 0,
