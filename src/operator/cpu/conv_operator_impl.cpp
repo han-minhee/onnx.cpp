@@ -55,10 +55,10 @@ namespace CPU_OP
         // initialize output tensor to 0
         std::fill(output_data, output_data + (N * M * H_out * W_out), static_cast<T>(0));
 
-        for (int64_t g = 0; g < group; ++g)
+        // for N batch
+        for (int64_t n = 0; n < N; ++n)
         {
-            // for N batch
-            for (int64_t n = 0; n < N; ++n)
+            for (int64_t g = 0; g < group; ++g)
             {
                 // for M output channels
                 for (int64_t m = 0; m < M / group; ++m)
